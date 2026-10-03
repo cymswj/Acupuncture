@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles.css'
+import { trackEvent } from './analytics.js'
+import { saveLead } from './crm.js'
 
 const fallbackConfig = {
   brand: { name: 'SANYA TCM', legalLine: 'International Patient Service' },
@@ -228,6 +230,7 @@ function App() {
   }, [])
 
   useEffect(() => {
+    trackEvent('page_view', { language: lang })
     fetch(`${import.meta.env.BASE_URL}config/site.json`, { cache: 'no-store' })
       .then(r => r.ok ? r.json() : Promise.reject(new Error('config unavailable')))
       .then(data => {
@@ -306,6 +309,25 @@ function App() {
     ].filter(Boolean).join('\n')
     setPreparedMessage(text)
 
+    const lead = saveLead({
+      id: 'SAN-' + Date.now().toString().slice(-8),
+      stage: 'new',
+      source: attribution.utmSource || attribution.ref || 'direct',
+      medium: attribution.utmMedium,
+      campaign: attribution.utmCampaign,
+      language: lang,
+      name: form.name,
+      contact: form.contact,
+      preferredDate: form.date,
+      service: form.service,
+    })
+    trackEvent('lead_created', {
+      leadId: lead.id,
+      source: lead.source,
+      language: lead.language,
+      service: lead.service,
+    })
+
     if (config.leadsApi?.enabled && config.leadsApi.url) {
       fetch(config.leadsApi.url, {
         method: config.leadsApi.method || 'POST',
@@ -329,7 +351,7 @@ function App() {
     <main id="top">
       <section className="hero"><div className="container heroGrid">
         <div><div className="eyebrow">{t.heroEyebrow}</div><h1>{t.heroTitle}</h1><p className="heroText">{t.heroText}</p>
-          <div className="actions"><button className="btn primary" onClick={()=>scroll('request')}>{t.primary}</button>{telegramUrl ? <a className="btn ghost" href={telegramUrl} target="_blank" rel="noreferrer">{t.secondary}</a> : <button className="btn ghost" onClick={()=>scroll('request')}>{t.secondary}</button>}</div>
+          <div className="actions"><button className="btn primary" onClick={()=>{ trackEvent('cta_click',{placement:'hero'}); scroll('request') }}>{t.primary}</button>{telegramUrl ? <a className="btn ghost" onClick={()=>trackEvent('contact_opened',{channel:'telegram',placement:'hero'})} href={telegramUrl} target="_blank" rel="noreferrer">{t.secondary}</a> : <button className="btn ghost" onClick={()=>scroll('request')}>{t.secondary}</button>}</div>
           <div className="trust">{t.trust.map(x=><span key={x}>✓ {x}</span>)}</div>
         </div>
         <div className="heroCard"><div className="circle">针</div><strong>{hospital.officialName}</strong><p>{hospital.ruName}</p><small>{hospital.address}</small></div>
@@ -352,8 +374,8 @@ function App() {
 
       {lang === 'ru' ? <section className="section soft" id="resources"><div className="container"><div className="kicker">07 · РУССКИЕ РЕСУРСЫ</div><div className="resourceGrid">{seoLinks.map(([href,label])=><a className="resourceCard" key={href} href={href}><span>{label}</span><strong>→</strong></a>)}</div></div></section> : null}
 
-      <section className="cta" id="request"><div className="container ctaInner"><div><div className="kicker">CONTACT</div><h2>{t.ctaTitle}</h2><p>{t.ctaText}</p></div><div className="ctaContact">{telegramUrl ? <a className="btn primary" href={telegramUrl} target="_blank" rel="noreferrer">{telegramHandle ? `Telegram ${telegramHandle}` : 'Telegram'} →</a> : <span className="configBadge">{t.formNoTelegram}</span>}</div></div>
-        <div className="container requestBox"><form onSubmit={submitForm}><h3>{t.formTitle}</h3><div className="formGrid"><label><span>{t.formName}</span><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} autoComplete="name" /></label><label><span>{t.formContact}</span><input value={form.contact} onChange={e=>setForm({...form,contact:e.target.value})} autoComplete="tel" /></label><label><span>{t.formDate}</span><input type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})} /></label><label><span>{t.formService}</span><select value={form.service} onChange={e=>setForm({...form,service:e.target.value})}>{t.formServiceOptions.map(x=><option key={x}>{x}</option>)}</select></label></div><label><span>{t.formNote}</span><textarea rows="3" value={form.note} onChange={e=>setForm({...form,note:e.target.value})} placeholder="Не указывайте диагнозы и не прикрепляйте медицинские документы." /></label><label className="check"><input type="checkbox" required /> <span>{t.formConsent}</span></label><button className="btn primary" type="submit">{t.formSubmit}</button>{formMessage ? <p className="formMessage">{formMessage}</p> : null}{preparedMessage ? <div className="preparedMessage"><pre>{preparedMessage}</pre><button type="button" className="btn ghost" onClick={()=>navigator.clipboard?.writeText(preparedMessage)}>{lang==='ru'?'Копировать сообщение':lang==='zh'?'复制消息':'Copy message'}</button></div> : null}</form></div>
+      <section className="cta" id="request"><div className="container ctaInner"><div><div className="kicker">CONTACT</div><h2>{t.ctaTitle}</h2><p>{t.ctaText}</p></div><div className="ctaContact">{telegramUrl ? <a className="btn primary" onClick={()=>trackEvent('contact_opened',{channel:'telegram',placement:'cta'})} href={telegramUrl} target="_blank" rel="noreferrer">{telegramHandle ? `Telegram ${telegramHandle}` : 'Telegram'} →</a> : <span className="configBadge">{t.formNoTelegram}</span>}</div></div>
+        <div className="container requestBox"><form onSubmit={submitForm} onFocus={()=>trackEvent('form_start',{form:'visit_request'})}><h3>{t.formTitle}</h3><div className="formGrid"><label><span>{t.formName}</span><input required value={form.name} onChange={e=>setForm({...form,name:e.target.value})} autoComplete="name" /></label><label><span>{t.formContact}</span><input required value={form.contact} onChange={e=>setForm({...form,contact:e.target.value})} autoComplete="tel" /></label><label><span>{t.formDate}</span><input type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})} /></label><label><span>{t.formService}</span><select value={form.service} onChange={e=>setForm({...form,service:e.target.value})}>{t.formServiceOptions.map(x=><option key={x}>{x}</option>)}</select></label></div><label><span>{t.formNote}</span><textarea rows="3" value={form.note} onChange={e=>setForm({...form,note:e.target.value})} placeholder="Не указывайте диагнозы и не прикрепляйте медицинские документы." /></label><label className="check"><input type="checkbox" required /> <span>{t.formConsent}</span></label><button className="btn primary" type="submit">{t.formSubmit}</button>{formMessage ? <p className="formMessage">{formMessage}</p> : null}{preparedMessage ? <div className="preparedMessage"><pre>{preparedMessage}</pre><button type="button" className="btn ghost" onClick={()=>navigator.clipboard?.writeText(preparedMessage)}>{lang==='ru'?'Копировать сообщение':lang==='zh'?'复制消息':'Copy message'}</button></div> : null}</form></div>
       </section>
     </main>
 
