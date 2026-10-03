@@ -237,11 +237,12 @@ function App() {
     const canonical = `${config.seo.siteUrl}${slug}`
     const schema = {
       '@context': 'https://schema.org',
-      '@type': 'WebSite',
-      name: config.brand.name,
-      url: canonical,
-      inLanguage: lang,
-      description
+      '@graph': [
+        { '@type': 'WebSite', name: config.brand.name, url: canonical, inLanguage: lang, description },
+        { '@type': 'Organization', name: config.brand.name, url: config.seo.siteUrl },
+        { '@type': 'Service', name: t.heroTitle, serviceType: 'International patient coordination', areaServed: 'Sanya, Hainan, China', availableLanguage: ['Russian', 'Chinese', 'English'], provider: { '@type': 'Organization', name: config.brand.name } },
+        { '@type': 'FAQPage', mainEntity: t.faqs.map(([q,a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })) }
+      ]
     }
     return { title, description, keywords, canonical, schema }
   }, [config, lang, t.heroTitle])
@@ -274,10 +275,6 @@ function App() {
   function submitForm(e) {
     e.preventDefault()
     setFormMessage('')
-    if (!telegramUrl) {
-      setFormMessage(t.formNoTelegram)
-      return
-    }
     const text = [
       'Запрос на визит / Visit request',
       `Имя: ${form.name || '—'}`,
@@ -286,11 +283,25 @@ function App() {
       `Услуга: ${form.service || '—'}`,
       `Организационная заметка: ${form.note || '—'}`,
       '',
-      `Источник: ${attribution.utmSource || attribution.ref || 'direct'}`,\n      attribution.utmMedium ? `渠道: ${attribution.utmMedium}` : '',\n      attribution.utmCampaign ? `Campaign: ${attribution.utmCampaign}` : '',\n      '',\n      'Не отправлены медицинские документы или диагнозы.'
-    ].join('\n')
-    const url = telegramUrl.includes('?') ? `${telegramUrl}&text=${encodeURIComponent(text)}` : `${telegramUrl}?text=${encodeURIComponent(text)}`
-    window.open(url, '_blank', 'noopener,noreferrer')
-    setFormMessage(t.formSuccess)
+      `Источник: ${attribution.utmSource || attribution.ref || 'direct'}`,
+      attribution.utmMedium ? `Source medium: ${attribution.utmMedium}` : '',
+      attribution.utmCampaign ? `Campaign: ${attribution.utmCampaign}` : '',
+      '',
+      'Не отправлены медицинские документы или диагнозы.'
+    ].filter(Boolean).join('\n')
+    setPreparedMessage(text)
+
+    if (config.leadsApi?.enabled && config.leadsApi.url) {
+      fetch(config.leadsApi.url, {
+        method: config.leadsApi.method || 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...form, attribution })
+      }).then(() => setFormMessage(t.formSuccess)).catch(() => setFormMessage(t.formSuccess))
+    } else {
+      setFormMessage(t.formSuccess)
+    }
+
+    if (telegramUrl) window.open(telegramUrl, '_blank', 'noopener,noreferrer')
   }
 
   return <div className="site">
@@ -327,11 +338,11 @@ function App() {
       {lang === 'ru' ? <section className="section soft" id="resources"><div className="container"><div className="kicker">07 · РУССКИЕ РЕСУРСЫ</div><div className="resourceGrid">{seoLinks.map(([href,label])=><a className="resourceCard" key={href} href={href}><span>{label}</span><strong>→</strong></a>)}</div></div></section> : null}
 
       <section className="cta" id="request"><div className="container ctaInner"><div><div className="kicker">CONTACT</div><h2>{t.ctaTitle}</h2><p>{t.ctaText}</p></div><div className="ctaContact">{telegramUrl ? <a className="btn primary" href={telegramUrl} target="_blank" rel="noreferrer">{telegramHandle ? `Telegram ${telegramHandle}` : 'Telegram'} →</a> : <span className="configBadge">{t.formNoTelegram}</span>}</div></div>
-        <div className="container requestBox"><form onSubmit={submitForm}><h3>{t.formTitle}</h3><div className="formGrid"><label><span>{t.formName}</span><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} autoComplete="name" /></label><label><span>{t.formContact}</span><input value={form.contact} onChange={e=>setForm({...form,contact:e.target.value})} autoComplete="tel" /></label><label><span>{t.formDate}</span><input type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})} /></label><label><span>{t.formService}</span><select value={form.service} onChange={e=>setForm({...form,service:e.target.value})}>{t.formServiceOptions.map(x=><option key={x}>{x}</option>)}</select></label></div><label><span>{t.formNote}</span><textarea rows="3" value={form.note} onChange={e=>setForm({...form,note:e.target.value})} placeholder="Не указывайте диагнозы и не прикрепляйте медицинские документы." /></label><label className="check"><input type="checkbox" required /> <span>{t.formConsent}</span></label><button className="btn primary" type="submit">{t.formSubmit}</button>{formMessage ? <p className="formMessage">{formMessage}</p> : null}</form></div>
+        <div className="container requestBox"><form onSubmit={submitForm}><h3>{t.formTitle}</h3><div className="formGrid"><label><span>{t.formName}</span><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} autoComplete="name" /></label><label><span>{t.formContact}</span><input value={form.contact} onChange={e=>setForm({...form,contact:e.target.value})} autoComplete="tel" /></label><label><span>{t.formDate}</span><input type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})} /></label><label><span>{t.formService}</span><select value={form.service} onChange={e=>setForm({...form,service:e.target.value})}>{t.formServiceOptions.map(x=><option key={x}>{x}</option>)}</select></label></div><label><span>{t.formNote}</span><textarea rows="3" value={form.note} onChange={e=>setForm({...form,note:e.target.value})} placeholder="Не указывайте диагнозы и не прикрепляйте медицинские документы." /></label><label className="check"><input type="checkbox" required /> <span>{t.formConsent}</span></label><button className="btn primary" type="submit">{t.formSubmit}</button>{formMessage ? <p className="formMessage">{formMessage}</p> : null}{preparedMessage ? <div className="preparedMessage"><pre>{preparedMessage}</pre><button type="button" className="btn ghost" onClick={()=>navigator.clipboard?.writeText(preparedMessage)}>{lang==='ru'?'Копировать сообщение':lang==='zh'?'复制消息':'Copy message'}</button></div> : null}</form></div>
       </section>
     </main>
 
-    <footer><div className="container footer"><div className="brand">{config.brand.name}<span>TCM</span></div><div><p>{t.footer}</p><div className="footerLinks"><a href={hospital.website} target="_blank" rel="noreferrer">{hospital.officialName}</a>{config.contact?.vkUrl ? <a href={config.contact.vkUrl} target="_blank" rel="noreferrer">VK</a> : null}{config.contact?.whatsappUrl ? <a href={config.contact.whatsappUrl} target="_blank" rel="noreferrer">WhatsApp</a> : null}{config.contact?.email ? <a href={`mailto:${config.contact.email}`}>{config.contact.email}</a> : null}</div></div><small>© 2026 {config.brand.name}</small></div></footer>
+    <footer><div className="container footer"><div className="brand">{config.brand.name}<span>TCM</span></div><div><p>{t.footer}</p><div className="footerLinks"><a href={hospital.website} target="_blank" rel="noreferrer">{hospital.officialName}</a>{config.contact?.vkUrl ? <a href={config.contact.vkUrl} target="_blank" rel="noreferrer">VK</a> : null}{config.contact?.whatsappUrl ? <a href={config.contact.whatsappUrl} target="_blank" rel="noreferrer">WhatsApp</a> : null}{config.contact?.email ? <a href={`mailto:${config.contact.email}`}>{config.contact.email}</a> : null}</div></div><small>© 2026 {config.brand.name} · <a href={config.legal?.privacyPolicyUrl || '#'}>Privacy</a> · <a href={config.legal?.termsUrl || '#'}>Terms</a></small></div></footer>
   </div>
 }
 
