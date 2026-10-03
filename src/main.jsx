@@ -294,7 +294,7 @@ function App() {
     window.location.href = next === 'ru' ? base : `${base}${next}/`
   }
 
-  function submitForm(e) {
+  async function submitForm(e) {
     e.preventDefault()
     setFormMessage('')
     const text = [
@@ -310,10 +310,10 @@ function App() {
       attribution.utmCampaign ? `Campaign: ${attribution.utmCampaign}` : '',
       '',
       'Не отправлены медицинские документы или диагнозы.'
-    ].filter(Boolean).join('\n')
+    ].filter(Boolean).join('\\n')
     setPreparedMessage(text)
 
-    const lead = saveLead({
+    const lead = {
       id: 'SAN-' + Date.now().toString().slice(-8),
       stage: config.funnel?.defaultLeadStage || 'appointment_requested',
       source: attribution.utmSource || attribution.ref || 'direct',
@@ -324,51 +324,64 @@ function App() {
       contact: form.contact,
       preferredDate: form.date,
       service: form.service,
-    })
-    trackEvent('appointment_requested', {
-      leadId: lead.id,
-      source: lead.source,
-      language: lead.language,
-      service: lead.service,
-    })
-    trackEvent('lead_created', {
-      leadId: lead.id,
-      source: lead.source,
-      language: lead.language,
-      service: lead.service,
-    })
+    }
+    const remoteLead = Boolean(config.leadsApi?.enabled && config.leadsApi.url)
 
-    if (config.leadsApi?.enabled && config.leadsApi.url) {
-      fetch(config.leadsApi.url, {
-        method: config.leadsApi.method || 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, id: lead.id, language: lang, source: attribution.utmSource || attribution.ref || 'direct', medium: attribution.utmMedium, campaign: attribution.utmCampaign })
-      }).then(() => setFormMessage(t.formSuccess)).catch(() => setFormMessage(t.formSuccess))
-    } else {
+    try {
+      if (remoteLead) {
+        const response = await fetch(config.leadsApi.url, {
+          method: config.leadsApi.method || 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(lead),
+        })
+        if (!response.ok) {
+          let detail = ''
+          try { const body = await response.json(); detail = body?.error || '' } catch {}
+          throw new Error(detail || 'lead API request failed')
+        }
+      } else {
+        saveLead(lead)
+      }
+
+      trackEvent('appointment_requested', {
+        leadId: lead.id,
+        source: lead.source,
+        language: lead.language,
+        service: lead.service,
+      })
+      trackEvent('lead_created', {
+        leadId: lead.id,
+        source: lead.source,
+        language: lead.language,
+        service: lead.service,
+      })
+
+      if (config.analyticsApi?.enabled && config.analyticsApi.url) {
+        fetch(config.analyticsApi.url, {
+          method: config.analyticsApi.method || 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            eventName: 'appointment_requested',
+            path: window.location.pathname,
+            language: lang,
+            source: lead.source,
+            medium: lead.medium,
+            campaign: lead.campaign,
+          }),
+          keepalive: true,
+        }).catch(() => {})
+      }
+
       setFormMessage(t.formSuccess)
-    }
 
-    if (config.analyticsApi?.enabled && config.analyticsApi.url) {
-      fetch(config.analyticsApi.url, {
-        method: config.analyticsApi.method || 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          eventName: 'appointment_requested',
-          path: window.location.pathname,
-          language: lang,
-          source: attribution.utmSource || attribution.ref || 'direct',
-          medium: attribution.utmMedium,
-          campaign: attribution.utmCampaign,
-        }),
-        keepalive: true,
-      }).catch(() => {})
-    }
-
-    if (telegramUrl) {
-      const target = telegramShareUrl || telegramUrl
-      const supportsPrefill = !telegramShareUrl && /^https:\/\/t\.me\/[^/?#]+\/?$/.test(telegramUrl)
-      const withText = supportsPrefill ? telegramUrl.replace(/\/$/, '') + '?text=' + encodeURIComponent(text) : (telegramShareUrl ? (telegramShareUrl.includes('?') ? telegramShareUrl + '&text=' + encodeURIComponent(text) : telegramShareUrl + '?text=' + encodeURIComponent(text)) : telegramUrl)
-      window.open(withText, '_blank', 'noopener,noreferrer')
+      if (telegramUrl) {
+        const supportsPrefill = !telegramShareUrl && /^https:\/\/t\.me\/[^/?#]+\/?$/.test(telegramUrl)
+        const withText = supportsPrefill ? telegramUrl.replace(/\/$/, '') + '?text=' + encodeURIComponent(text) : (telegramShareUrl ? (telegramShareUrl.includes('?') ? telegramShareUrl + '&text=' + encodeURIComponent(text) : telegramShareUrl + '?text=' + encodeURIComponent(text)) : telegramUrl)
+        window.open(withText, '_blank', 'noopener,noreferrer')
+      }
+    } catch (error) {
+      console.error(error)
+      setFormMessage('Не удалось создать запрос. Сообщение уже подготовлено — сохраните его и свяжитесь с сервисом другим способом.')
     }
   }
 
