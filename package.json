@@ -8,9 +8,10 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "npm run check && vite build",
+    "build": "npm run check && npm run sync-config && vite build",
     "preview": "vite preview",
-    "check": "node scripts/check.mjs"
+    "check": "node scripts/check.mjs",
+    "sync-config": "node scripts/sync-runtime-config.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "6.1.1",
