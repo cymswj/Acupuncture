@@ -137,5 +137,10 @@
       "closed"
     ],
     "followupDaysDefault": 7
+  },
+  "analyticsApi": {
+    "enabled": false,
+    "url": "",
+    "method": "POST"
   }
 }
