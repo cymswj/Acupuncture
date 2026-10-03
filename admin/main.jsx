@@ -8,21 +8,13 @@ const stageLabels = {
   new: 'Новый',
   qualified: 'Квалифицирован',
   appointment_requested: 'Запрошена запись',
-  confirmed: 'Подтверждено',
+  confirmed: '已确认',
   visited: 'Был на приёме',
-  followup: 'Повторный визит',
+  followup: '复诊',
   closed: 'Закрыт',
 }
 
-const stageLabelsZh = {
-  new: '新线索',
-  qualified: '已筛选',
-  appointment_requested: '已提交预约',
-  confirmed: '已确认',
-  visited: '已到院',
-  followup: '复诊',
-  closed: '已关闭',
-}
+const stageLabelsZh = stageLabels
 
 const LOCAL_TOKEN_KEY = 'sanya_tcm_admin_session_v1'
 
@@ -214,7 +206,7 @@ function App() {
       })
       await refreshRemote()
     } catch {
-      setAuthMessage('更新 Lead 失败。')
+      setAuthMessage('更新线索失败。')
     }
   }
 
@@ -243,7 +235,7 @@ function App() {
         setLeads(listLeads())
       }
     } catch {
-      setAuthMessage('无法创建测试 Lead。')
+      setAuthMessage('无法创建测试线索。')
     }
   }
 
@@ -271,38 +263,38 @@ function App() {
     URL.revokeObjectURL(url)
   }
 
-  if (configError) return <div className="adminPage"><div className="adminShell"><div className="emptyCard">{configError}</div></div></div>
+  if (configError) return <div className="adminPage"><div className="adminShell"><div className="emptyCard">{configError} 请刷新页面重试。</div></div></div>
   if (!config) return <div className="adminPage"><div className="adminShell"><div className="emptyCard">正在加载后台配置…</div></div></div>
 
   if (remoteMode && !authChecked) return <div className="adminPage"><div className="adminShell"><div className="emptyCard">正在验证登录状态…</div></div></div>
 
   if (remoteMode && !token) {
     return <div className="adminPage"><div className="adminShell" style={{maxWidth:520}}>
-      <div className="adminTop"><div><div className="kicker">SANYA TCM · ADMIN</div><h1>后台登录</h1><p>远程 CRM 模式。账号和密码只提交到配置的 HTTPS API，不保存在网站代码中。</p></div></div>
+      <div className="adminTop"><div><div className="kicker">SANYA TCM · 后台</div><h1>后台登录</h1><p>远程 CRM 模式。账号和密码只提交到配置的 HTTPS API，不保存在网站代码中。</p></div></div>
       <form className="requestBox" onSubmit={login} style={{marginTop:20}}>
         <label><span>账号</span><input required value={username} onChange={e=>setUsername(e.target.value)} autoComplete="username" /></label>
         <label><span>密码</span><input required type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="current-password" /></label>
         <button className="btn primary" type="submit" disabled={loading}>{loading ? '登录中…' : '登录后台'}</button>
         {authMessage ? <p className="formMessage">{authMessage}</p> : null}
       </form>
-      <div className="emptyCard" style={{marginTop:16}}>退出当前远程模式？需要在 config/site.json 中关闭 adminApi.enabled。</div>
+      <div className="emptyCard" style={{marginTop:16}}>未部署后端时会自动使用本机测试模式。正式环境请在配置中启用 adminApi。</div>
     </div></div>
   }
 
   return <div className="adminPage">
     <div className="adminShell">
-      <div className="adminTop"><div><div className="kicker">SANYA TCM · {remoteMode ? 'SHARED CRM' : 'CRM LITE'}</div><h1>患者与预约</h1><p>{remoteMode ? '共享后端模式：Lead 与漏斗统计来自 PostgreSQL。请勿在这里保存病历、MRI、CT、诊断等敏感医疗资料。' : '当前为本机测试模式。配置远程 API 后，团队可使用同一套 Lead 数据。'}</p></div><div className="adminActions">{remoteMode ? <><span style={{alignSelf:'center'}}>👤 {username || 'admin'}</span><button onClick={refreshRemote}>刷新</button><button onClick={download}>Экспорт CSV</button><button onClick={logout}>退出</button></> : null}<button onClick={addDemo}>Добавить тест</button>{!remoteMode ? <button onClick={download}>Экспорт CSV</button> : null}<a href="/Acupuncture/">Сайт ↗</a></div></div>
+      <div className="adminTop"><div><div className="kicker">SANYA TCM · {remoteMode ? '共享 CRM' : '本机 CRM'}</div><h1>线索与预约</h1><p>{remoteMode ? '共享后端模式：线索与漏斗统计来自 PostgreSQL。请勿在这里保存病历、MRI、CT、诊断等敏感医疗资料。' : '当前为本机测试模式。配置远程 API 后，团队可使用同一套共享数据。'}</p></div><div className="adminActions">{remoteMode ? <><span style={{alignSelf:'center'}}>👤 {username || 'admin'}</span><button onClick={refreshRemote}>刷新</button><button onClick={download}>导出 CSV</button><button onClick={logout}>退出</button></> : null}<button onClick={addDemo}>新增测试</button>{!remoteMode ? <button onClick={download}>导出 CSV</button> : null}<a href="/Acupuncture/">返回网站 ↗</a></div></div>
       {authMessage ? <div className="formMessage" style={{marginBottom:16}}>{authMessage}</div> : null}
       <div className="metricGrid">
-        <div className="metric"><span>Всего Lead</span><strong>{stats.total}</strong></div>
-        <div className="metric"><span>Подтверждено</span><strong>{stats.confirmed}</strong></div>
-        <div className="metric"><span>Были на приёме</span><strong>{stats.visited}</strong></div>
-        <div className="metric"><span>Повторный визит</span><strong>{stats.followup}</strong></div>
-        <div className="metric"><span>Главный источник</span><strong>{stats.topSource}</strong></div>
+        <div className="metric"><span>全部线索</span><strong>{stats.total}</strong></div>
+        <div className="metric"><span>已确认</span><strong>{stats.confirmed}</strong></div>
+        <div className="metric"><span>已到院</span><strong>{stats.visited}</strong></div>
+        <div className="metric"><span>复诊</span><strong>{stats.followup}</strong></div>
+        <div className="metric"><span>主要来源</span><strong>{stats.topSource}</strong></div>
         <div className="metric"><span>事件</span><strong>{stats.events}</strong></div>
       </div>
       <div className="stageBar"><button className={!stage?'active':''} onClick={()=>setStage('')}>Все ({leads.length})</button>{LEAD_STAGES.map(s=><button key={s} className={stage===s?'active':''} onClick={()=>setStage(s)}>{stageLabels[s]} ({remoteMode ? remoteStageCount(s) : leads.filter(x=>x.stage===s).length})</button>)}</div>
-      <div className="crmGrid">{filtered.length ? filtered.map(lead=><article className="leadCard" key={lead.id}><div className="leadTop"><strong>{lead.name || 'Без имени'}</strong><span>{stageLabels[lead.stage] || lead.stage}</span></div><div className="leadMeta"><span>{lead.id}</span><span>{lead.source || 'direct'}</span><span>{lead.preferredDate || '—'}</span><span>{lead.service || '—'}</span><span>到院: {lead.visitDate || '—'}</span><span>复诊: {lead.followupDate || '—'}</span></div><p>{lead.contact || '—'}</p><p className="leadNote">{remoteMode ? '' : lead.note || ''}</p><div className="leadActions"><select value={lead.stage} onChange={e=>remoteMode ? moveRemote(lead.id,e.target.value) : moveLocal(lead.id,e.target.value)}>{LEAD_STAGES.map(s=><option value={s} key={s}>{stageLabels[s]}</option>)}</select><button onClick={()=>remoteMode ? moveRemote(lead.id,'visited',{visitDate:new Date().toISOString().slice(0,10)}) : (updateLead(lead.id,{visitDate:new Date().toISOString().slice(0,10),stage:'visited'}), trackEvent('visit_completed',{leadStage:'visited'}), setLeads(listLeads()))}>已到院</button><button onClick={()=>remoteMode ? moveRemote(lead.id,'followup',{followupDate:new Date().toISOString().slice(0,10)}) : (updateLead(lead.id,{followupDate:new Date().toISOString().slice(0,10),stage:'followup'}), trackEvent('followup_completed',{leadStage:'followup'}), setLeads(listLeads()))}>{stageLabelsZh.followup}</button>{!remoteMode ? <button onClick={()=>removeLocal(lead.id)}>删除</button> : null}</div></article>) : <div className="emptyCard">暂无 Lead。可以先添加测试客户验证流程。</div>}</div>
+      <div className="crmGrid">{filtered.length ? filtered.map(lead=><article className="leadCard" key={lead.id}><div className="leadTop"><strong>{lead.name || '未填写姓名'}</strong><span>{stageLabels[lead.stage] || lead.stage}</span></div><div className="leadMeta"><span>{lead.id}</span><span>{lead.source || 'direct'}</span><span>{lead.preferredDate || '—'}</span><span>{lead.service || '—'}</span><span>到院：{lead.visitDate || '—'}</span><span>复诊：{lead.followupDate || '—'}</span></div><p>{lead.contact || '—'}</p><p className="leadNote">{remoteMode ? '' : lead.note || ''}</p><div className="leadActions"><select value={lead.stage} onChange={e=>remoteMode ? moveRemote(lead.id,e.target.value) : moveLocal(lead.id,e.target.value)}>{LEAD_STAGES.map(s=><option value={s} key={s}>{stageLabels[s]}</option>)}</select><button onClick={()=>remoteMode ? moveRemote(lead.id,'visited',{visitDate:new Date().toISOString().slice(0,10)}) : (updateLead(lead.id,{visitDate:new Date().toISOString().slice(0,10),stage:'visited'}), trackEvent('visit_completed',{leadStage:'visited'}), setLeads(listLeads()))}>已到院</button><button onClick={()=>remoteMode ? moveRemote(lead.id,'followup',{followupDate:new Date().toISOString().slice(0,10)}) : (updateLead(lead.id,{followupDate:new Date().toISOString().slice(0,10),stage:'followup'}), trackEvent('followup_completed',{leadStage:'followup'}), setLeads(listLeads()))}>{stageLabelsZh.followup}</button>{!remoteMode ? <button onClick={()=>removeLocal(lead.id)}>删除</button> : null}</div></article>) : <div className="emptyCard">暂无线索。可以先添加测试线索验证流程。</div>}</div>
     </div>
   </div>
 }
