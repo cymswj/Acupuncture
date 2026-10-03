@@ -278,7 +278,8 @@ function App() {
     ['/Acupuncture/ru/faq/', 'FAQ для русскоязычных пациентов'],
     ['/Acupuncture/ru/prepare-for-visit/', 'Как подготовиться к визиту'],
     ['/Acupuncture/ru/evidence/', 'Что говорит наука об иглоукалывании'],
-    ['/Acupuncture/ru/patient-guide/', 'Как русскоязычные пациенты выбирают ТКМ']
+    ['/Acupuncture/ru/patient-guide/', 'Как русскоязычные пациенты выбирают ТКМ'],
+    ['/Acupuncture/ru/how-to-choose/', 'Как выбрать клинику в Санье']
   ]
 
   function switchLang(next) {
