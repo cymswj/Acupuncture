@@ -8,7 +8,8 @@
     "telegramHandle": "",
     "vkUrl": "",
     "whatsappUrl": "",
-    "email": ""
+    "email": "",
+    "telegramShareUrl": ""
   },
   "hospital": {
     "officialName": "三亚市中医院",
@@ -123,5 +124,18 @@
     "contactEmail": "",
     "privacyPolicyUrl": "/Acupuncture/ru/privacy/",
     "termsUrl": "/Acupuncture/ru/terms/"
+  },
+  "funnel": {
+    "defaultLeadStage": "appointment_requested",
+    "stages": [
+      "new",
+      "qualified",
+      "appointment_requested",
+      "confirmed",
+      "visited",
+      "followup",
+      "closed"
+    ],
+    "followupDaysDefault": 7
   }
 }
