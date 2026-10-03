@@ -240,7 +240,7 @@ D. 平台化：
 
 ### 已确认的优点
 
-React/Vite 多页面结构适合当前“营销首页 + SEO 专题页 + Admin”阶段；Vite 官方支持多页入口，public 目录适合需要保留固定 URL 的运行时静态资源。公开页面与后台页面已经形成清晰边界。citeturn940956search5turn940956search0
+React/Vite 多页面结构适合当前“营销首页 + SEO 专题页 + Admin”阶段；Vite 官方支持多页入口，public 目录适合需要保留固定 URL 的运行时静态资源。公开页面与后台页面已经形成清晰边界。
 
 ### 已完成的改进
 
@@ -259,5 +259,5 @@ React/Vite 多页面结构适合当前“营销首页 + SEO 专题页 + Admin”
 
 1. API 尚未部署到公网 HTTPS。
 2. Admin 仍未启用共享 CRM。
-3. 当前浏览器端 Admin 登录 token 暂存在 sessionStorage；正式生产前建议升级为 HttpOnly Secure Cookie / BFF 架构。OWASP 不建议把认证 token 放在 localStorage 或 sessionStorage。citeturn532342search0
+3. 当前浏览器端 Admin 登录 token 暂存在 sessionStorage；正式生产前建议升级为 HttpOnly Secure Cookie / BFF 架构。OWASP 不建议把认证 token 放在 localStorage 或 sessionStorage。
 4. 生产环境需要完整 RBAC、审计日志、备份/恢复、数据删除策略、监控与跨境数据合规评估。
