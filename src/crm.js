@@ -41,7 +41,8 @@ export function listLeads() { return read() }
 export function saveLead(input) {
   const now = new Date().toISOString()
   const existing = input.id ? read().find(x => x.id === input.id) : null
-  const lead = { ...DEFAULT_LEAD, ...existing, ...input, updatedAt: now, createdAt: existing?.createdAt || now }
+  const { note, ...safeInput } = input
+  const lead = { ...DEFAULT_LEAD, ...existing, ...safeInput, note: '', updatedAt: now, createdAt: existing?.createdAt || now }
   const items = read().filter(x => x.id !== lead.id)
   items.unshift(lead)
   write(items)
