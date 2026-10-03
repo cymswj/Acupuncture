@@ -9,6 +9,7 @@ const fallbackConfig = {
   contact: {
     telegramUrl: '',
     telegramHandle: '',
+    telegramShareUrl: '',
     vkUrl: '',
     whatsappUrl: '',
     email: ''
@@ -22,6 +23,7 @@ const fallbackConfig = {
     department: '针灸科'
   },
   doctors: [],
+  funnel: { defaultLeadStage: 'appointment_requested', stages: ['new','qualified','appointment_requested','confirmed','visited','followup','closed'], followupDaysDefault: 7 },
   seo: {
     defaultTitle: 'Иглоукалывание в Санье | Русскоязычное сопровождение',
     defaultDescription: 'Русскоязычный сервис записи и сопровождения при посещении больницы традиционной китайской медицины в Санье.',
