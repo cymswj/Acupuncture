@@ -341,10 +341,26 @@ function App() {
       fetch(config.leadsApi.url, {
         method: config.leadsApi.method || 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, attribution })
+        body: JSON.stringify({ ...form, id: lead.id, language: lang, source: attribution.utmSource || attribution.ref || 'direct', medium: attribution.utmMedium, campaign: attribution.utmCampaign })
       }).then(() => setFormMessage(t.formSuccess)).catch(() => setFormMessage(t.formSuccess))
     } else {
       setFormMessage(t.formSuccess)
+    }
+
+    if (config.analyticsApi?.enabled && config.analyticsApi.url) {
+      fetch(config.analyticsApi.url, {
+        method: config.analyticsApi.method || 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventName: 'appointment_requested',
+          path: window.location.pathname,
+          language: lang,
+          source: attribution.utmSource || attribution.ref || 'direct',
+          medium: attribution.utmMedium,
+          campaign: attribution.utmCampaign,
+        }),
+        keepalive: true,
+      }).catch(() => {})
     }
 
     if (telegramUrl) {
