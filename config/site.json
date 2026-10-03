@@ -1,0 +1,53 @@
+{
+  "brand": {
+    "name": "SANYA",
+    "legalLine": "International Patient Service"
+  },
+  "contact": {
+    "telegramUrl": "",
+    "telegramHandle": "",
+    "vkUrl": "",
+    "whatsappUrl": "",
+    "email": ""
+  },
+  "hospital": {
+    "officialName": "三亚市中医院",
+    "ruName": "Саньяский городской госпиталь традиционной китайской медицины",
+    "address": "海南省三亚市凤凰路106号",
+    "phone": "0898-88275345",
+    "website": "https://www.syszhy.cn/",
+    "department": "针灸科"
+  },
+  "doctors": [
+    {
+      "enabled": false,
+      "name": "",
+      "title": "",
+      "specialty": "",
+      "languages": ["中文", "Русский"],
+      "credentials": "",
+      "photo": ""
+    }
+  ],
+  "seo": {
+    "siteUrl": "https://cymswj.github.io/Acupuncture/",
+    "defaultTitle": "Иглоукалывание в Санье | Русскоязычное сопровождение",
+    "defaultDescription": "Русскоязычный информационный и организационный сервис для пациентов, которые хотят пройти иглоукалывание или другие услуги традиционной китайской медицины в Санье.",
+    "keywords": "иглоукалывание в Санье, акупунктура в Санье, китайская медицина Санья, иглоукалывание для русских, медицинская помощь в Санье",
+    "ru": {
+      "title": "Иглоукалывание в Санье | Акупунктура для русскоязычных пациентов",
+      "description": "Как пройти иглоукалывание в Санье русскоязычному пациенту: больница, запись, русская коммуникация, стоимость и организационные вопросы.",
+      "keywords": "иглоукалывание в Санье, акупунктура в Санье, иглотерапия Санья, китайская медицина Санья, иглоукалывание для русских"
+    },
+    "zh": {
+      "title": "三亚针灸就诊服务 | 俄语患者就医协助",
+      "description": "面向俄语患者的三亚针灸与中医就诊信息及组织协助服务。",
+      "keywords": "三亚针灸, 三亚中医院, 俄语患者, 中医, 针灸"
+    },
+    "en": {
+      "title": "Acupuncture in Sanya | Russian-speaking Patient Support",
+      "description": "Information and coordination for Russian-speaking patients seeking acupuncture and traditional Chinese medicine care in Sanya.",
+      "keywords": "acupuncture in Sanya, Sanya TCM, Russian-speaking patients, traditional Chinese medicine Sanya"
+    }
+  }
+}
