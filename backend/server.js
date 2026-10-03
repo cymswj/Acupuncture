@@ -1,5 +1,6 @@
 import http from 'node:http'
 import crypto from 'node:crypto'
+import fs from 'node:fs/promises'
 import pg from 'pg'
 
 const { Pool } = pg
@@ -169,6 +170,12 @@ function createLeadId() {
   return 'SAN-' + date + '-' + suffix
 }
 
+async function ensureSchema() {
+  const schemaPath = new URL('./schema.sql', import.meta.url)
+  const schema = await fs.readFile(schemaPath, 'utf8')
+  await pool.query(schema)
+}
+
 const server = http.createServer(async (req, res) => {
   try {
     cors(res)
@@ -284,4 +291,9 @@ const server = http.createServer(async (req, res) => {
   }
 })
 
-server.listen(PORT, () => console.log('Sanya TCM API listening on :' + PORT))
+ensureSchema()
+  .then(() => server.listen(PORT, () => console.log('Sanya TCM API listening on :' + PORT)))
+  .catch(error => {
+    console.error('Database schema initialization failed', error)
+    process.exit(1)
+  })
