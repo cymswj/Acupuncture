@@ -276,7 +276,9 @@ function App() {
     ['/Acupuncture/ru/pricing/', 'Сколько стоит иглоукалывание в Санье'],
     ['/Acupuncture/ru/doctors/', 'Врачи отделения иглоукалывания'],
     ['/Acupuncture/ru/faq/', 'FAQ для русскоязычных пациентов'],
-    ['/Acupuncture/ru/prepare-for-visit/', 'Как подготовиться к визиту']
+    ['/Acupuncture/ru/prepare-for-visit/', 'Как подготовиться к визиту'],
+    ['/Acupuncture/ru/evidence/', 'Что говорит наука об иглоукалывании'],
+    ['/Acupuncture/ru/patient-guide/', 'Как русскоязычные пациенты выбирают ТКМ']
   ]
 
   function switchLang(next) {
@@ -335,7 +337,7 @@ function App() {
       <section className="section" id="about"><div className="container"><div className="sectionHead"><span>01</span><h2>{t.introTitle}</h2><p>{t.introText}</p></div><div className="cards">{t.cards.map(c=><article key={c[0]}><span>{c[0]}</span><h3>{c[1]}</h3><p>{c[2]}</p></article>)}</div></div></section>
 
       <section className="section soft" id="hospital"><div className="container split">
-        <div><div className="kicker">02 · HOSPITAL</div><h2>{t.hospitalTitle}</h2><p>{t.hospitalText}</p><div className="hospitalMeta"><strong>{hospital.officialName}</strong><span>{hospital.address}</span><span>{hospital.phone}</span><a href={hospital.website} target="_blank" rel="noreferrer">{t.official} ↗</a></div></div>
+        <div><div className="kicker">02 · HOSPITAL</div><h2>{t.hospitalTitle}</h2><p>{t.hospitalText}</p><div className="hospitalMeta"><strong>{hospital.officialName}</strong><span>{hospital.address}</span><span>{hospital.phone}</span><a href={hospital.website} target="_blank" rel="noopener noreferrer">{t.official} ↗</a><div className="sourceLinks"><a href="https://ws.sanya.gov.cn/wjwsite/ttxw/202607/8a75783eac224a9f8833dc34bf7fda42.shtml" target="_blank" rel="noopener noreferrer">三亚卫健委 · 国际医疗报道 ↗</a><a href="https://app.xinhuanet.com/news/article.html?articleId=20260831853e79fd100f473b948ddb9538e80c78" target="_blank" rel="noopener noreferrer">新华社 · 中医国际服务报道 ↗</a></div></div></div>
         <ul>{t.hospitalPoints.map(x=><li key={x}>✓ <span>{x}</span></li>)}</ul>
       </div></section>
 
