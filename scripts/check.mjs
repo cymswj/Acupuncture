@@ -13,6 +13,7 @@ const required = [
   'src/crm.js',
   'src/analytics.js',
   'config/site.json',
+  'public/config/site.json',
   'public/robots.txt',
   'public/sitemap.xml',
   'public/ru/evidence/index.html',
@@ -61,11 +62,17 @@ for (const textValue of ['/api/auth/login','/api/auth/logout','/api/dashboard'])
   if (!admin.includes(textValue)) throw new Error('Admin is missing ' + textValue)
 }
 const backend = fs.readFileSync('backend/server.js','utf8')
+for (const file of ['backend/server.js','backend/hash-password.mjs']) {
+  const syntax = require('node:child_process').spawnSync(process.execPath, ['--check', file], { encoding: 'utf8' })
+  if (syntax.status !== 0) throw new Error(`${file} syntax check failed: ${syntax.stderr || syntax.stdout}`)
+}
 for (const textValue of ['/api/auth/login','/api/auth/me','/api/auth/logout','/api/dashboard']) {
   if (!backend.includes(textValue)) throw new Error('Backend is missing ' + textValue)
 }
 if (!backend.includes('timingSafeEqual')) throw new Error('Password verification must use timingSafeEqual')
 if (!backend.includes('admin_sessions')) throw new Error('Database-backed admin sessions are missing')
+if (!backend.includes('allowPublicRequest')) throw new Error('Public endpoint rate limiting is missing')
+if (!backend.includes('createLeadId')) throw new Error('Server-generated Lead IDs are missing')
 if (backend.includes("ADMIN_PASSWORD = process.env")) throw new Error('Do not support plaintext admin passwords')
 
 console.log('Repository checks passed')
