@@ -1,0 +1,150 @@
+{
+  "brand": {
+    "name": "SANYA",
+    "legalLine": "International Patient Service"
+  },
+  "contact": {
+    "telegramUrl": "",
+    "telegramHandle": "",
+    "vkUrl": "",
+    "whatsappUrl": "",
+    "email": "",
+    "telegramShareUrl": ""
+  },
+  "hospital": {
+    "officialName": "三亚市中医院",
+    "ruName": "Саньяский городской госпиталь традиционной китайской медицины",
+    "address": "海南省三亚市凤凰路106号",
+    "phone": "0898-88275345",
+    "website": "https://www.syszhy.cn/",
+    "department": "针灸科",
+    "sourceUrl": "https://www.syszhy.cn/",
+    "lastVerified": "2026-10-03"
+  },
+  "doctors": [
+    {
+      "enabled": false,
+      "name": "刘建浩",
+      "title": "主任医师",
+      "specialty": "针药结合治疗中风、面瘫、耳鸣、失眠、三叉神经痛等神经系统疾病",
+      "languages": [
+        "中文"
+      ],
+      "credentials": "信息来源：三亚市中医院针灸科公开页面"
+    },
+    {
+      "enabled": false,
+      "name": "徐琼",
+      "title": "副主任医师",
+      "specialty": "颈肩腰腿痛、面瘫、带状疱疹、失眠、中风后遗症等",
+      "languages": [
+        "中文"
+      ],
+      "credentials": "信息来源：三亚市中医院针灸二科公开页面"
+    },
+    {
+      "enabled": false,
+      "name": "黄建福",
+      "title": "副主任医师",
+      "specialty": "针灸创新研究；帕金森病、面瘫病、中风病、颈肩腰腿关节疼痛等",
+      "languages": [
+        "中文"
+      ],
+      "credentials": "信息来源：三亚市中医院针灸二科公开页面"
+    },
+    {
+      "enabled": false,
+      "name": "王天磊",
+      "title": "副主任医师",
+      "specialty": "颈肩腰腿痛等疼痛性疾病，以及面瘫、中风后遗症、失眠等神经系统疾病",
+      "languages": [
+        "中文"
+      ],
+      "credentials": "信息来源：三亚市中医院针灸科公开页面"
+    },
+    {
+      "enabled": false,
+      "name": "王波",
+      "title": "副主任医师",
+      "specialty": "脑血管病、颈肩腰腿痛、瘫痪病症、面瘫、失眠等",
+      "languages": [
+        "中文"
+      ],
+      "credentials": "信息来源：三亚市中医院针灸科公开页面"
+    }
+  ],
+  "seo": {
+    "siteUrl": "https://cymswj.github.io/Acupuncture/",
+    "defaultTitle": "Иглоукалывание в Санье | Русскоязычное сопровождение",
+    "defaultDescription": "Русскоязычный информационный и организационный сервис для пациентов, которые хотят пройти иглоукалывание или другие услуги традиционной китайской медицины в Санье.",
+    "keywords": "иглоукалывание в Санье, акупунктура в Санье, китайская медицина Санья, иглоукалывание для русских, медицинская помощь в Санье",
+    "ru": {
+      "title": "Иглоукалывание в Санье | Акупунктура для русскоязычных пациентов",
+      "description": "Как пройти иглоукалывание в Санье русскоязычному пациенту: больница, запись, русская коммуникация, стоимость и организационные вопросы.",
+      "keywords": "иглоукалывание в Санье, акупунктура в Санье, иглотерапия Санья, китайская медицина Санья, иглоукалывание для русских"
+    },
+    "zh": {
+      "title": "三亚针灸就诊服务 | 俄语患者就医协助",
+      "description": "面向俄语患者的三亚针灸与中医就诊信息及组织协助服务。",
+      "keywords": "三亚针灸, 三亚中医院, 俄语患者, 中医, 针灸"
+    },
+    "en": {
+      "title": "Acupuncture in Sanya | Russian-speaking Patient Support",
+      "description": "Information and coordination for Russian-speaking patients seeking acupuncture and traditional Chinese medicine care in Sanya.",
+      "keywords": "acupuncture in Sanya, Sanya TCM, Russian-speaking patients, traditional Chinese medicine Sanya"
+    }
+  },
+  "pricing": {
+    "showPublicPrice": false,
+    "currency": "CNY",
+    "medicalFeeLabel": "按照医院适用收费标准及医生实际评估",
+    "coordinationFeeLabel": "如有独立组织服务费用，将单独说明",
+    "startingPrice": null
+  },
+  "contentApi": {
+    "enabled": false,
+    "url": ""
+  },
+  "leadTracking": {
+    "enabled": true,
+    "capture": [
+      "utm_source",
+      "utm_medium",
+      "utm_campaign",
+      "ref"
+    ]
+  },
+  "leadsApi": {
+    "enabled": false,
+    "url": "",
+    "method": "POST"
+  },
+  "legal": {
+    "serviceOwner": "待填写",
+    "contactEmail": "",
+    "privacyPolicyUrl": "/Acupuncture/ru/privacy/",
+    "termsUrl": "/Acupuncture/ru/terms/"
+  },
+  "funnel": {
+    "defaultLeadStage": "appointment_requested",
+    "stages": [
+      "new",
+      "qualified",
+      "appointment_requested",
+      "confirmed",
+      "visited",
+      "followup",
+      "closed"
+    ],
+    "followupDaysDefault": 7
+  },
+  "analyticsApi": {
+    "enabled": false,
+    "url": "",
+    "method": "POST"
+  },
+  "adminApi": {
+    "enabled": false,
+    "baseUrl": ""
+  }
+}
