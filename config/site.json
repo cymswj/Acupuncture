@@ -142,5 +142,9 @@
     "enabled": false,
     "url": "",
     "method": "POST"
+  },
+  "adminApi": {
+    "enabled": false,
+    "baseUrl": ""
   }
 }
