@@ -72,7 +72,7 @@ function App() {
 
   return <div className="adminPage">
     <div className="adminShell">
-      <div className="adminTop"><div><div className="kicker">SANYA TCM · CRM LITE</div><h1>Пациенты и записи</h1><p>Локальный тестовый CRM. Не используйте его для хранения медицинских документов или диагнозов.</p></div><div className="adminActions"><button onClick={addDemo}>Добавить тест</button><button onClick={download}>Экспорт CSV</button><a href="/Acupuncture/">Сайт ↗</a></div></div>
+      <div className="adminTop"><div><div className="kicker">SANYA TCM · CRM LITE</div><h1>Пациенты и записи</h1><p>CRM Lite：当前为本机测试模式。连接共享 API 后，团队可使用同一套 Lead 数据。不要存储医疗文件或诊断。</p></div><div className="adminActions"><button onClick={addDemo}>Добавить тест</button><button onClick={download}>Экспорт CSV</button><a href="/Acupuncture/">Сайт ↗</a></div></div>
       <div className="metricGrid">
         <div className="metric"><span>Всего Lead</span><strong>{stats.total}</strong></div>
         <div className="metric"><span>Подтверждено</span><strong>{stats.confirmed}</strong></div>
