@@ -26,6 +26,7 @@ const required = [
   'backend/schema.sql',
   'backend/hash-password.mjs',
   'backend/.env.example',
+  'scripts/sync-runtime-config.mjs',
 ]
 
 const missing = required.filter(file => !fs.existsSync(path.resolve(file)))
@@ -33,6 +34,10 @@ if (missing.length) {
   console.error('Missing required files:', missing.join(', '))
   process.exit(1)
 }
+
+const packageJson = JSON.parse(fs.readFileSync('package.json','utf8'))
+if (packageJson.scripts?.['sync-config'] !== 'node scripts/sync-runtime-config.mjs') throw new Error('sync-config script is missing')
+if (!String(packageJson.scripts?.build || '').includes('npm run sync-config')) throw new Error('build must sync runtime config')
 
 const config = JSON.parse(fs.readFileSync('config/site.json','utf8'))
 if (!config.seo?.siteUrl?.startsWith('https://')) throw new Error('seo.siteUrl must be HTTPS')
