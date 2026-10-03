@@ -9,7 +9,8 @@
 - Russian-first SEO content pages
 
 内容层：
-- `config/site.json`
+- `config/site.json`（单一事实源）
+- `scripts/sync-runtime-config.mjs`（构建时发布运行时配置）
 - Telegram / VK / WhatsApp / Email
 - 医院信息
 - 医生信息
@@ -233,3 +234,30 @@ D. 平台化：
 → 更容易安全地到院
 → 更容易完成沟通
 → 逐步形成可复用的国际患者服务基础设施。
+
+
+## 12. 本轮深度审计结论
+
+### 已确认的优点
+
+React/Vite 多页面结构适合当前“营销首页 + SEO 专题页 + Admin”阶段；Vite 官方支持多页入口，public 目录适合需要保留固定 URL 的运行时静态资源。公开页面与后台页面已经形成清晰边界。citeturn940956search5turn940956search0
+
+### 已完成的改进
+
+1. Admin 配置读取改为基于 `BASE_URL`，兼容 GitHub Pages 子路径。
+2. 运行时配置改为单一事实源，构建时自动同步。
+3. Admin 全部中文化，后台不再混入俄文。
+4. Lead 写入失败不再显示假成功。
+5. Lead ID 改由服务器生成。
+6. 公开 Lead / Event 接口限流并限制事件白名单。
+7. PostgreSQL schema 在 API 启动时主动初始化/校验。
+8. Russian SEO 页 canonical 统一为目录 URL。
+9. Admin 从 robots 中排除。
+10. CI 增加运行时配置、后台路由、后端语法和关键安全检查。
+
+### 当前仍未进入正式生产的部分
+
+1. API 尚未部署到公网 HTTPS。
+2. Admin 仍未启用共享 CRM。
+3. 当前浏览器端 Admin 登录 token 暂存在 sessionStorage；正式生产前建议升级为 HttpOnly Secure Cookie / BFF 架构。OWASP 不建议把认证 token 放在 localStorage 或 sessionStorage。citeturn532342search0
+4. 生产环境需要完整 RBAC、审计日志、备份/恢复、数据删除策略、监控与跨境数据合规评估。
