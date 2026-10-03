@@ -64,7 +64,7 @@ function App() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    fetch('/Acupuncture/config/site.json', { cache: 'no-store' })
+    fetch(`${import.meta.env.BASE_URL}config/site.json`, { cache: 'no-store' })
       .then(r => r.ok ? r.json() : Promise.reject(new Error('config unavailable')))
       .then(data => {
         setConfig(data)
