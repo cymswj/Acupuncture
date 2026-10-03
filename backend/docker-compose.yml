@@ -7,17 +7,24 @@ services:
     ports:
       - "127.0.0.1:8787:8787"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
   db:
     image: postgres:18-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: sanya_tcm
-      POSTGRES_USER: sanya
-      POSTGRES_PASSWORD: change-this-password
+      POSTGRES_DB: ${POSTGRES_DB:-sanya_tcm}
+      POSTGRES_USER: ${POSTGRES_USER:-sanya}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in backend/.env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sanya} -d ${POSTGRES_DB:-sanya_tcm}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
 volumes:
   postgres_data:
