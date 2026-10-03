@@ -242,7 +242,7 @@ function App() {
 
   const meta = useMemo(() => {
     const path = window.location.pathname.toLowerCase()
-    const localePath = path.includes('/zh/') ? 'zh/' : path.includes('/en/') ? 'en/' : path.includes('/ru/') ? 'ru/' : ''
+    const localePath = path.includes('/zh/') ? 'zh/' : path.includes('/en/') ? 'en/' : ''
     const title = config.seo?.[lang]?.title || (lang === 'ru' ? config.seo.defaultTitle : `${config.brand.name} | ${t.heroTitle}`)
     const description = config.seo?.[lang]?.description || config.seo.defaultDescription
     const keywords = config.seo?.[lang]?.keywords || config.seo.keywords
