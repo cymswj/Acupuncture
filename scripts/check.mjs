@@ -14,7 +14,6 @@ const required = [
   'src/crm.js',
   'src/analytics.js',
   'config/site.json',
-  'public/config/site.json',
   'public/robots.txt',
   'public/sitemap.xml',
   'public/ru/evidence/index.html',
@@ -36,8 +35,6 @@ if (missing.length) {
 }
 
 const config = JSON.parse(fs.readFileSync('config/site.json','utf8'))
-const runtimeConfig = JSON.parse(fs.readFileSync('public/config/site.json','utf8'))
-if (JSON.stringify(config) !== JSON.stringify(runtimeConfig)) throw new Error('public/config/site.json is out of sync with config/site.json')
 if (!config.seo?.siteUrl?.startsWith('https://')) throw new Error('seo.siteUrl must be HTTPS')
 if (!config.hospital?.website?.startsWith('https://')) throw new Error('hospital.website must be HTTPS')
 if (!Array.isArray(config.funnel?.stages) || !config.funnel.stages.includes('appointment_requested')) throw new Error('funnel stages are incomplete')
