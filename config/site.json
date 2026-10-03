@@ -112,5 +112,16 @@
       "utm_campaign",
       "ref"
     ]
+  },
+  "leadsApi": {
+    "enabled": false,
+    "url": "",
+    "method": "POST"
+  },
+  "legal": {
+    "serviceOwner": "待填写",
+    "contactEmail": "",
+    "privacyPolicyUrl": "/Acupuncture/ru/privacy/",
+    "termsUrl": "/Acupuncture/ru/terms/"
   }
 }
