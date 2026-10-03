@@ -272,6 +272,7 @@ function App() {
   const activeDoctor = config.doctors?.find(d => d.enabled === true)
   const telegramUrl = config.contact?.telegramUrl || ''
   const telegramHandle = config.contact?.telegramHandle || ''
+  const telegramShareUrl = config.contact?.telegramShareUrl || ''
   const scroll = id => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   const seoLinks = [
     ['/Acupuncture/ru/acupuncture/', 'Иглоукалывание в Санье: как начать'],
@@ -311,7 +312,7 @@ function App() {
 
     const lead = saveLead({
       id: 'SAN-' + Date.now().toString().slice(-8),
-      stage: 'new',
+      stage: config.funnel?.defaultLeadStage || 'appointment_requested',
       source: attribution.utmSource || attribution.ref || 'direct',
       medium: attribution.utmMedium,
       campaign: attribution.utmCampaign,
@@ -320,6 +321,12 @@ function App() {
       contact: form.contact,
       preferredDate: form.date,
       service: form.service,
+    })
+    trackEvent('appointment_requested', {
+      leadId: lead.id,
+      source: lead.source,
+      language: lead.language,
+      service: lead.service,
     })
     trackEvent('lead_created', {
       leadId: lead.id,
@@ -338,7 +345,12 @@ function App() {
       setFormMessage(t.formSuccess)
     }
 
-    if (telegramUrl) window.open(telegramUrl, '_blank', 'noopener,noreferrer')
+    if (telegramUrl) {
+      const target = telegramShareUrl || telegramUrl
+      const supportsPrefill = !telegramShareUrl && /^https:\/\/t\.me\/[^/?#]+\/?$/.test(telegramUrl)
+      const withText = supportsPrefill ? telegramUrl.replace(/\/$/, '') + '?text=' + encodeURIComponent(text) : (telegramShareUrl ? (telegramShareUrl.includes('?') ? telegramShareUrl + '&text=' + encodeURIComponent(text) : telegramShareUrl + '?text=' + encodeURIComponent(text)) : telegramUrl)
+      window.open(withText, '_blank', 'noopener,noreferrer')
+    }
   }
 
   return <div className="site">
