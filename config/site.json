@@ -23,15 +23,53 @@
   "doctors": [
     {
       "enabled": false,
-      "name": "",
-      "title": "",
-      "specialty": "",
+      "name": "刘建浩",
+      "title": "主任医师",
+      "specialty": "针药结合治疗中风、面瘫、耳鸣、失眠、三叉神经痛等神经系统疾病",
       "languages": [
-        "中文",
-        "Русский"
+        "中文"
       ],
-      "credentials": "",
-      "photo": ""
+      "credentials": "信息来源：三亚市中医院针灸科公开页面"
+    },
+    {
+      "enabled": false,
+      "name": "徐琼",
+      "title": "副主任医师",
+      "specialty": "颈肩腰腿痛、面瘫、带状疱疹、失眠、中风后遗症等",
+      "languages": [
+        "中文"
+      ],
+      "credentials": "信息来源：三亚市中医院针灸二科公开页面"
+    },
+    {
+      "enabled": false,
+      "name": "黄建福",
+      "title": "副主任医师",
+      "specialty": "针灸创新研究；帕金森病、面瘫病、中风病、颈肩腰腿关节疼痛等",
+      "languages": [
+        "中文"
+      ],
+      "credentials": "信息来源：三亚市中医院针灸二科公开页面"
+    },
+    {
+      "enabled": false,
+      "name": "王天磊",
+      "title": "副主任医师",
+      "specialty": "颈肩腰腿痛等疼痛性疾病，以及面瘫、中风后遗症、失眠等神经系统疾病",
+      "languages": [
+        "中文"
+      ],
+      "credentials": "信息来源：三亚市中医院针灸科公开页面"
+    },
+    {
+      "enabled": false,
+      "name": "王波",
+      "title": "副主任医师",
+      "specialty": "脑血管病、颈肩腰腿痛、瘫痪病症、面瘫、失眠等",
+      "languages": [
+        "中文"
+      ],
+      "credentials": "信息来源：三亚市中医院针灸科公开页面"
     }
   ],
   "seo": {
