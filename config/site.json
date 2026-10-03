@@ -16,7 +16,9 @@
     "address": "海南省三亚市凤凰路106号",
     "phone": "0898-88275345",
     "website": "https://www.syszhy.cn/",
-    "department": "针灸科"
+    "department": "针灸科",
+    "sourceUrl": "https://www.syszhy.cn/",
+    "lastVerified": "2026-10-03"
   },
   "doctors": [
     {
@@ -24,7 +26,10 @@
       "name": "",
       "title": "",
       "specialty": "",
-      "languages": ["中文", "Русский"],
+      "languages": [
+        "中文",
+        "Русский"
+      ],
       "credentials": "",
       "photo": ""
     }
@@ -49,5 +54,25 @@
       "description": "Information and coordination for Russian-speaking patients seeking acupuncture and traditional Chinese medicine care in Sanya.",
       "keywords": "acupuncture in Sanya, Sanya TCM, Russian-speaking patients, traditional Chinese medicine Sanya"
     }
+  },
+  "pricing": {
+    "showPublicPrice": false,
+    "currency": "CNY",
+    "medicalFeeLabel": "按照医院适用收费标准及医生实际评估",
+    "coordinationFeeLabel": "如有独立组织服务费用，将单独说明",
+    "startingPrice": null
+  },
+  "contentApi": {
+    "enabled": false,
+    "url": ""
+  },
+  "leadTracking": {
+    "enabled": true,
+    "capture": [
+      "utm_source",
+      "utm_medium",
+      "utm_campaign",
+      "ref"
+    ]
   }
 }
