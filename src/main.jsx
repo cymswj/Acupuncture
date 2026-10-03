@@ -219,7 +219,13 @@ function App() {
   useEffect(() => {
     fetch('/Acupuncture/config/site.json', { cache: 'no-store' })
       .then(r => r.ok ? r.json() : Promise.reject(new Error('config unavailable')))
-      .then(data => setConfig(prev => ({ ...prev, ...data, contact: { ...prev.contact, ...(data.contact || {}) }, hospital: { ...prev.hospital, ...(data.hospital || {}) }, seo: { ...prev.seo, ...(data.seo || {}) } })))
+      .then(data => {
+        setConfig(prev => ({ ...prev, ...data, contact: { ...prev.contact, ...(data.contact || {}) }, hospital: { ...prev.hospital, ...(data.hospital || {}) }, seo: { ...prev.seo, ...(data.seo || {}) } }))
+        if (data.contentApi?.enabled && data.contentApi.url) {
+          return fetch(data.contentApi.url, { cache: 'no-store' }).then(r => r.ok ? r.json() : Promise.reject(new Error('api unavailable')))
+            .then(remote => setConfig(prev => ({ ...prev, ...remote, contact: { ...prev.contact, ...(remote.contact || {}) }, hospital: { ...prev.hospital, ...(remote.hospital || {}) }, seo: { ...prev.seo, ...(remote.seo || {}) } })))
+        }
+      })
       .catch(() => {})
   }, [])
 
