@@ -15,7 +15,7 @@
 - React + Vite
 - Russian / Chinese / English 页面
 - Russian SEO-first 页面结构
-- 独立 `config/site.json` 内容配置层
+- `config/site.json` 单一事实源；构建时自动同步为运行时静态配置
 - 医院官方信息、医生信息、Telegram、VK、WhatsApp、邮箱均可从配置层填写
 - 预约表单目前生成 Telegram 消息，不在网站保存患者医疗资料
 - GitHub Pages 自动部署
@@ -42,7 +42,7 @@
 
 GitHub Pages 是静态托管，本身不能安全地保存管理员密码、患者资料或直接提供数据库写入接口。因此当前版本把“可变业务内容”从前端代码里抽离出来。
 
-下一阶段接入真正后端时，只需要让 `config/site.json` 的读取改为 API，即可把内容迁移到数据库/后台管理系统，而不必重做前台。
+下一阶段接入真正后端时，可以逐步把配置内容迁移到 Content API / 数据库；前台保持现有配置接口，不必重做页面。
 
 推荐的后端数据模型：
 
@@ -87,3 +87,13 @@ GitHub Pages 是静态托管，本身不能安全地保存管理员密码、患�
 ## 重要原则
 
 不发布未经核实的医生履历，不把独立服务写成医院官方渠道，不作诊断，不保证疗效，不提前承诺固定疗程。
+
+
+## 2026-10 架构审计后的技术边界
+
+- GitHub Pages：只负责公开前台、SEO 静态内容与 Admin 前端代码，不存放数据库凭据。
+- 运行时配置：源文件唯一保留在 `config/site.json`；`npm run build` 会先生成 `public/config/site.json`，避免手工维护两份配置。
+- Admin：未配置 API 时为本机 CRM Lite；配置 HTTPS API 后切换到共享 CRM 登录模式。
+- API：Node.js + PostgreSQL，负责认证、Lead、漏斗事件和后台统计。
+- 数据：当前只保存最小组织信息，不设计成电子病历系统。
+- 安全：公开 Lead / Event 接口具有限流；后台 Session 服务端存储 token 摘要；管理员密码使用 scrypt 哈希。
