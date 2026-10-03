@@ -11,6 +11,7 @@ export default defineConfig({
         ru: 'ru/index.html',
         zh: 'zh/index.html',
         en: 'en/index.html',
+        admin: 'admin/index.html',
       },
     },
   },
