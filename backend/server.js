@@ -6,13 +6,17 @@ const { Pool } = pg
 const pool = new Pool({ connectionString: process.env.DATABASE_URL })
 const PORT = Number(process.env.PORT || 8787)
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || ''
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin'
+const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || ''
+const SESSION_TTL_HOURS = Math.max(1, Math.min(168, Number(process.env.SESSION_TTL_HOURS || 12)))
 const ORIGIN = process.env.CORS_ORIGIN || 'https://cymswj.github.io'
 const stages = new Set(['new','qualified','appointment_requested','confirmed','visited','followup','closed'])
+const loginAttempts = new Map()
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', ORIGIN)
   res.setHeader('Vary', 'Origin')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Admin-Token')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Admin-Token')
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,OPTIONS')
 }
 function json(res, status, body) {
@@ -41,9 +45,94 @@ function readBody(req) {
     req.on('error', reject)
   })
 }
-function isAdmin(req) {
-  return Boolean(ADMIN_TOKEN) && req.headers['x-admin-token'] === ADMIN_TOKEN
+
+function clientIp(req) {
+  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim()
+  return forwarded || req.socket.remoteAddress || 'unknown'
 }
+function isRateLimited(ip) {
+  const now = Date.now()
+  const item = loginAttempts.get(ip)
+  if (!item || now >= item.resetAt) return false
+  return item.count >= 8
+}
+function recordFailedLogin(ip) {
+  const now = Date.now()
+  const item = loginAttempts.get(ip)
+  if (!item || now >= item.resetAt) {
+    loginAttempts.set(ip, { count: 1, resetAt: now + 15 * 60 * 1000 })
+  } else {
+    item.count += 1
+  }
+}
+function clearFailedLogins(ip) {
+  loginAttempts.delete(ip)
+}
+function cleanupLoginAttempts() {
+  const now = Date.now()
+  for (const [ip, item] of loginAttempts) {
+    if (now >= item.resetAt) loginAttempts.delete(ip)
+  }
+}
+setInterval(cleanupLoginAttempts, 15 * 60 * 1000).unref()
+
+function parsePasswordHash(value) {
+  const parts = String(value || '').split('$')
+  if (parts.length !== 6 || parts[0] !== 'scrypt') return null
+  const N = Number(parts[1])
+  const r = Number(parts[2])
+  const p = Number(parts[3])
+  const salt = Buffer.from(parts[4], 'base64')
+  const expected = Buffer.from(parts[5], 'base64')
+  if (!Number.isInteger(N) || !Number.isInteger(r) || !Number.isInteger(p) || !salt.length || !expected.length) return null
+  return { N, r, p, salt, expected }
+}
+function verifyPassword(password) {
+  const parsed = parsePasswordHash(ADMIN_PASSWORD_HASH)
+  if (!parsed || parsed.expected.length !== 64) return false
+  const derived = crypto.scryptSync(String(password || ''), parsed.salt, parsed.expected.length, {
+    N: parsed.N,
+    r: parsed.r,
+    p: parsed.p,
+    maxmem: 64 * 1024 * 1024,
+  })
+  return crypto.timingSafeEqual(derived, parsed.expected)
+}
+function tokenHash(token) {
+  return crypto.createHash('sha256').update(token).digest('hex')
+}
+async function createSession(username) {
+  const token = crypto.randomBytes(32).toString('base64url')
+  const expires = new Date(Date.now() + SESSION_TTL_HOURS * 60 * 60 * 1000)
+  await pool.query(
+    'INSERT INTO admin_sessions(token_hash,username,expires_at) VALUES($1,$2,$3)',
+    [tokenHash(token), username, expires]
+  )
+  await pool.query('DELETE FROM admin_sessions WHERE expires_at < NOW()')
+  return { token, expiresAt: expires.toISOString() }
+}
+async function getSession(req) {
+  const auth = String(req.headers.authorization || '')
+  const bearer = auth.startsWith('Bearer ') ? auth.slice(7).trim() : ''
+  const legacy = String(req.headers['x-admin-token'] || '')
+  if (legacy && ADMIN_TOKEN && legacy === ADMIN_TOKEN) {
+    return { username: ADMIN_USERNAME, legacy: true }
+  }
+  if (!bearer) return null
+  const result = await pool.query(
+    'SELECT username, expires_at FROM admin_sessions WHERE token_hash=$1 AND expires_at > NOW()',
+    [tokenHash(bearer)]
+  )
+  const row = result.rows[0]
+  if (!row) return null
+  await pool.query('UPDATE admin_sessions SET last_seen_at=NOW() WHERE token_hash=$1', [tokenHash(bearer)])
+  return { username: row.username, legacy: false, tokenHash: tokenHash(bearer) }
+}
+async function requireAdmin(req) {
+  const session = await getSession(req)
+  return session
+}
+
 function cleanLead(input) {
   return {
     id: String(input.id || crypto.randomUUID()).slice(0, 80),
@@ -69,10 +158,41 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { ok: true, service: 'sanya-tcm-api' })
     }
 
+    if (req.method === 'POST' && url.pathname === '/api/auth/login') {
+      const ip = clientIp(req)
+      if (isRateLimited(ip)) return json(res, 429, { error: 'too many login attempts' })
+      const input = await readBody(req)
+      const username = String(input.username || '').trim()
+      const password = String(input.password || '')
+      if (!ADMIN_PASSWORD_HASH || username !== ADMIN_USERNAME || !verifyPassword(password)) {
+        recordFailedLogin(ip)
+        return json(res, 401, { error: 'invalid credentials' })
+      }
+      clearFailedLogins(ip)
+      const session = await createSession(username)
+      return json(res, 200, { ok: true, username, token: session.token, expiresAt: session.expiresAt })
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/auth/me') {
+      const session = await requireAdmin(req)
+      if (!session) return json(res, 401, { error: 'unauthorized' })
+      return json(res, 200, { ok: true, username: session.username })
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/auth/logout') {
+      const auth = String(req.headers.authorization || '')
+      const bearer = auth.startsWith('Bearer ') ? auth.slice(7).trim() : ''
+      if (bearer) await pool.query('DELETE FROM admin_sessions WHERE token_hash=$1', [tokenHash(bearer)])
+      return json(res, 200, { ok: true })
+    }
+
     if (req.method === 'POST' && url.pathname === '/api/leads') {
       const lead = cleanLead(await readBody(req))
       if (!lead.name || !lead.contact || !lead.service) return json(res, 400, { error: 'name, contact and service are required' })
-      await pool.query('INSERT INTO leads (id,stage,source,medium,campaign,language,name,contact,preferred_date,service) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT (id) DO UPDATE SET updated_at=NOW(),stage=$2,source=$3,medium=$4,campaign=$5,language=$6,name=$7,contact=$8,preferred_date=$9,service=$10', [lead.id,'appointment_requested',lead.source,lead.medium,lead.campaign,lead.language,lead.name,lead.contact,lead.preferredDate,lead.service])
+      await pool.query(
+        'INSERT INTO leads (id,stage,source,medium,campaign,language,name,contact,preferred_date,service) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT (id) DO UPDATE SET updated_at=NOW(),stage=$2,source=$3,medium=$4,campaign=$5,language=$6,name=$7,contact=$8,preferred_date=$9,service=$10',
+        [lead.id,'appointment_requested',lead.source,lead.medium,lead.campaign,lead.language,lead.name,lead.contact,lead.preferredDate,lead.service]
+      )
       return json(res, 201, { ok: true, id: lead.id, stage: 'appointment_requested' })
     }
 
@@ -80,23 +200,53 @@ const server = http.createServer(async (req, res) => {
       const input = await readBody(req)
       const eventName = String(input.eventName || '').slice(0, 80)
       if (!eventName) return json(res, 400, { error: 'eventName is required' })
-      await pool.query('INSERT INTO funnel_events(event_name,path,language,source,medium,campaign) VALUES($1,$2,$3,$4,$5,$6)', [eventName,String(input.path || '').slice(0,200),String(input.language || '').slice(0,16),String(input.source || '').slice(0,80),String(input.medium || '').slice(0,80),String(input.campaign || '').slice(0,120)])
+      await pool.query(
+        'INSERT INTO funnel_events(event_name,path,language,source,medium,campaign) VALUES($1,$2,$3,$4,$5,$6)',
+        [eventName,String(input.path || '').slice(0,200),String(input.language || '').slice(0,16),String(input.source || '').slice(0,80),String(input.medium || '').slice(0,80),String(input.campaign || '').slice(0,120)]
+      )
       return json(res, 201, { ok: true })
     }
 
     if (req.method === 'GET' && url.pathname === '/api/leads') {
-      if (!isAdmin(req)) return json(res, 401, { error: 'unauthorized' })
+      const session = await requireAdmin(req)
+      if (!session) return json(res, 401, { error: 'unauthorized' })
       const result = await pool.query('SELECT * FROM leads ORDER BY created_at DESC LIMIT 500')
       return json(res, 200, { leads: result.rows })
     }
 
+    if (req.method === 'GET' && url.pathname === '/api/dashboard') {
+      const session = await requireAdmin(req)
+      if (!session) return json(res, 401, { error: 'unauthorized' })
+      const [counts, sources, events] = await Promise.all([
+        pool.query('SELECT stage, COUNT(*)::int AS count FROM leads GROUP BY stage'),
+        pool.query("SELECT COALESCE(source,'direct') AS source, COUNT(*)::int AS count FROM leads GROUP BY 1 ORDER BY count DESC LIMIT 10"),
+        pool.query('SELECT COUNT(*)::int AS count FROM funnel_events'),
+      ])
+      const stageCounts = Object.fromEntries(counts.rows.map(row => [row.stage, row.count]))
+      return json(res, 200, {
+        totals: {
+          leads: Object.values(stageCounts).reduce((sum, n) => sum + n, 0),
+          confirmed: stageCounts.confirmed || 0,
+          visited: stageCounts.visited || 0,
+          followup: stageCounts.followup || 0,
+          events: events.rows[0]?.count || 0,
+        },
+        stageCounts,
+        sources: sources.rows,
+      })
+    }
+
     if (req.method === 'PATCH' && url.pathname.startsWith('/api/leads/')) {
-      if (!isAdmin(req)) return json(res, 401, { error: 'unauthorized' })
+      const session = await requireAdmin(req)
+      if (!session) return json(res, 401, { error: 'unauthorized' })
       const id = decodeURIComponent(url.pathname.slice('/api/leads/'.length))
       const input = await readBody(req)
       const stage = String(input.stage || '')
       if (!stages.has(stage)) return json(res, 400, { error: 'invalid stage' })
-      await pool.query('UPDATE leads SET stage=$1,updated_at=NOW(),appointment_date=COALESCE($2,appointment_date),visit_date=COALESCE($3,visit_date),followup_date=COALESCE($4,followup_date),value_cny=COALESCE($5,value_cny),owner=COALESCE($6,owner) WHERE id=$7', [stage,input.appointmentDate || null,input.visitDate || null,input.followupDate || null,input.valueCny || null,input.owner || null,id])
+      await pool.query(
+        'UPDATE leads SET stage=$1,updated_at=NOW(),appointment_date=COALESCE($2,appointment_date),visit_date=COALESCE($3,visit_date),followup_date=COALESCE($4,followup_date),value_cny=COALESCE($5,value_cny),owner=COALESCE($6,owner) WHERE id=$7',
+        [stage,input.appointmentDate || null,input.visitDate || null,input.followupDate || null,input.valueCny || null,input.owner || null,id]
+      )
       return json(res, 200, { ok: true, id, stage })
     }
 
