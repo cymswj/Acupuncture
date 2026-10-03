@@ -326,31 +326,31 @@ function App() {
       service: form.service,
     }
     const remoteLead = Boolean(config.leadsApi?.enabled && config.leadsApi.url)
+    let savedLeadId = lead.id
 
     try {
       if (remoteLead) {
         const response = await fetch(config.leadsApi.url, {
           method: config.leadsApi.method || 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(lead),
+          body: JSON.stringify({ ...lead, id: undefined }),
         })
-        if (!response.ok) {
-          let detail = ''
-          try { const body = await response.json(); detail = body?.error || '' } catch {}
-          throw new Error(detail || 'lead API request failed')
-        }
+        let body = null
+        try { body = await response.json() } catch {}
+        if (!response.ok) throw new Error(body?.error || 'lead API request failed')
+        savedLeadId = body?.id || savedLeadId
       } else {
         saveLead(lead)
       }
 
       trackEvent('appointment_requested', {
-        leadId: lead.id,
+        leadId: savedLeadId,
         source: lead.source,
         language: lead.language,
         service: lead.service,
       })
       trackEvent('lead_created', {
-        leadId: lead.id,
+        leadId: savedLeadId,
         source: lead.source,
         language: lead.language,
         service: lead.service,
