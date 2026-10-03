@@ -11,7 +11,9 @@ const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || ''
 const SESSION_TTL_HOURS = Math.max(1, Math.min(168, Number(process.env.SESSION_TTL_HOURS || 12)))
 const ORIGIN = process.env.CORS_ORIGIN || 'https://cymswj.github.io'
 const stages = new Set(['new','qualified','appointment_requested','confirmed','visited','followup','closed'])
+const publicEvents = new Set(['page_view','resource_view','cta_click','form_start','lead_created','contact_opened','appointment_requested','appointment_confirmed','visit_completed','followup_due','followup_completed','lead_stage_changed'])
 const loginAttempts = new Map()
+const publicAttempts = new Map()
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', ORIGIN)
@@ -73,6 +75,21 @@ function cleanupLoginAttempts() {
   for (const [ip, item] of loginAttempts) {
     if (now >= item.resetAt) loginAttempts.delete(ip)
   }
+  for (const [key, item] of publicAttempts) {
+    if (now >= item.resetAt) publicAttempts.delete(key)
+  }
+}
+function allowPublicRequest(kind, ip, limit, windowMs) {
+  const key = kind + ':' + ip
+  const now = Date.now()
+  const item = publicAttempts.get(key)
+  if (!item || now >= item.resetAt) {
+    publicAttempts.set(key, { count: 1, resetAt: now + windowMs })
+    return true
+  }
+  if (item.count >= limit) return false
+  item.count += 1
+  return true
 }
 setInterval(cleanupLoginAttempts, 15 * 60 * 1000).unref()
 
@@ -135,16 +152,21 @@ async function requireAdmin(req) {
 
 function cleanLead(input) {
   return {
-    id: String(input.id || crypto.randomUUID()).slice(0, 80),
     source: String(input.source || 'direct').slice(0, 80),
     medium: String(input.medium || '').slice(0, 80),
     campaign: String(input.campaign || '').slice(0, 120),
     language: String(input.language || 'ru').slice(0, 16),
     name: String(input.name || '').trim().slice(0, 120),
     contact: String(input.contact || '').trim().slice(0, 160),
-    preferredDate: input.preferredDate || null,
+    preferredDate: /^\\d{4}-\\d{2}-\\d{2}$/.test(String(input.preferredDate || '')) ? input.preferredDate : null,
     service: String(input.service || '').trim().slice(0, 160),
   }
+}
+
+function createLeadId() {
+  const date = new Date().toISOString().slice(2, 10).replaceAll('-', '')
+  const suffix = crypto.randomBytes(3).toString('hex').toUpperCase()
+  return 'SAN-' + date + '-' + suffix
 }
 
 const server = http.createServer(async (req, res) => {
@@ -187,19 +209,24 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'POST' && url.pathname === '/api/leads') {
+      const ip = clientIp(req)
+      if (!allowPublicRequest('lead', ip, 30, 15 * 60 * 1000)) return json(res, 429, { error: 'too many lead requests' })
       const lead = cleanLead(await readBody(req))
       if (!lead.name || !lead.contact || !lead.service) return json(res, 400, { error: 'name, contact and service are required' })
+      const id = createLeadId()
       await pool.query(
-        'INSERT INTO leads (id,stage,source,medium,campaign,language,name,contact,preferred_date,service) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT (id) DO UPDATE SET updated_at=NOW(),stage=$2,source=$3,medium=$4,campaign=$5,language=$6,name=$7,contact=$8,preferred_date=$9,service=$10',
-        [lead.id,'appointment_requested',lead.source,lead.medium,lead.campaign,lead.language,lead.name,lead.contact,lead.preferredDate,lead.service]
+        'INSERT INTO leads (id,stage,source,medium,campaign,language,name,contact,preferred_date,service) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
+        [id,'appointment_requested',lead.source,lead.medium,lead.campaign,lead.language,lead.name,lead.contact,lead.preferredDate,lead.service]
       )
-      return json(res, 201, { ok: true, id: lead.id, stage: 'appointment_requested' })
+      return json(res, 201, { ok: true, id, stage: 'appointment_requested' })
     }
 
     if (req.method === 'POST' && url.pathname === '/api/events') {
+      const ip = clientIp(req)
+      if (!allowPublicRequest('event', ip, 120, 15 * 60 * 1000)) return json(res, 429, { error: 'too many event requests' })
       const input = await readBody(req)
       const eventName = String(input.eventName || '').slice(0, 80)
-      if (!eventName) return json(res, 400, { error: 'eventName is required' })
+      if (!publicEvents.has(eventName)) return json(res, 400, { error: 'unsupported event' })
       await pool.query(
         'INSERT INTO funnel_events(event_name,path,language,source,medium,campaign) VALUES($1,$2,$3,$4,$5,$6)',
         [eventName,String(input.path || '').slice(0,200),String(input.language || '').slice(0,16),String(input.source || '').slice(0,80),String(input.medium || '').slice(0,80),String(input.campaign || '').slice(0,120)]
