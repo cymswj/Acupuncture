@@ -7,7 +7,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "npm run sync-config && vite",
     "build": "npm run check && npm run sync-config && vite build",
     "preview": "vite preview",
     "check": "node scripts/check.mjs",
