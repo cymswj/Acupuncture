@@ -248,7 +248,21 @@ function App() {
   }
 
   function download() {
-    const blob = new Blob([exportLeadsCsv()], {type:'text/csv;charset=utf-8'})
+    if (!remoteMode) {
+      const blob = new Blob([exportLeadsCsv()], {type:'text/csv;charset=utf-8'})
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'sanya-tcm-leads.csv'
+      a.click()
+      URL.revokeObjectURL(url)
+      return
+    }
+
+    const headers = ['id','createdAt','updatedAt','stage','source','medium','campaign','language','name','contact','preferredDate','service','appointmentDate','visitDate','followupDate','valueCny','owner']
+    const esc = value => '"' + String(value ?? '').replace(/"/g, '""') + '"'
+    const csv = [headers.join(','), ...leads.map(row => headers.map(header => esc(row[header])).join(','))].join('\\n')
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8'})
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -277,7 +291,7 @@ function App() {
 
   return <div className="adminPage">
     <div className="adminShell">
-      <div className="adminTop"><div><div className="kicker">SANYA TCM · {remoteMode ? 'SHARED CRM' : 'CRM LITE'}</div><h1>患者与预约</h1><p>{remoteMode ? '共享后端模式：Lead 与漏斗统计来自 PostgreSQL。请勿在这里保存病历、MRI、CT、诊断等敏感医疗资料。' : '当前为本机测试模式。配置远程 API 后，团队可使用同一套 Lead 数据。'}</p></div><div className="adminActions">{remoteMode ? <><span style={{alignSelf:'center'}}>👤 {username || 'admin'}</span><button onClick={refreshRemote}>刷新</button><button onClick={logout}>退出</button></> : null}<button onClick={addDemo}>Добавить тест</button>{!remoteMode ? <button onClick={download}>Экспорт CSV</button> : null}<a href="/Acupuncture/">Сайт ↗</a></div></div>
+      <div className="adminTop"><div><div className="kicker">SANYA TCM · {remoteMode ? 'SHARED CRM' : 'CRM LITE'}</div><h1>患者与预约</h1><p>{remoteMode ? '共享后端模式：Lead 与漏斗统计来自 PostgreSQL。请勿在这里保存病历、MRI、CT、诊断等敏感医疗资料。' : '当前为本机测试模式。配置远程 API 后，团队可使用同一套 Lead 数据。'}</p></div><div className="adminActions">{remoteMode ? <><span style={{alignSelf:'center'}}>👤 {username || 'admin'}</span><button onClick={refreshRemote}>刷新</button><button onClick={download}>Экспорт CSV</button><button onClick={logout}>退出</button></> : null}<button onClick={addDemo}>Добавить тест</button>{!remoteMode ? <button onClick={download}>Экспорт CSV</button> : null}<a href="/Acupuncture/">Сайт ↗</a></div></div>
       {authMessage ? <div className="formMessage" style={{marginBottom:16}}>{authMessage}</div> : null}
       <div className="metricGrid">
         <div className="metric"><span>Всего Lead</span><strong>{stats.total}</strong></div>
