@@ -37,6 +37,7 @@ if (missing.length) {
 
 const packageJson = JSON.parse(fs.readFileSync('package.json','utf8'))
 if (packageJson.scripts?.['sync-config'] !== 'node scripts/sync-runtime-config.mjs') throw new Error('sync-config script is missing')
+if (packageJson.scripts?.dev !== 'npm run sync-config && vite') throw new Error('dev must sync runtime config')
 if (!String(packageJson.scripts?.build || '').includes('npm run sync-config')) throw new Error('build must sync runtime config')
 
 const config = JSON.parse(fs.readFileSync('config/site.json','utf8'))
