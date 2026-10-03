@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { spawnSync } from 'node:child_process'
 
 const required = [
   'index.html',
@@ -63,7 +64,7 @@ for (const textValue of ['/api/auth/login','/api/auth/logout','/api/dashboard'])
 }
 const backend = fs.readFileSync('backend/server.js','utf8')
 for (const file of ['backend/server.js','backend/hash-password.mjs']) {
-  const syntax = require('node:child_process').spawnSync(process.execPath, ['--check', file], { encoding: 'utf8' })
+  const syntax = spawnSync(process.execPath, ['--check', file], { encoding: 'utf8' })
   if (syntax.status !== 0) throw new Error(`${file} syntax check failed: ${syntax.stderr || syntax.stdout}`)
 }
 for (const textValue of ['/api/auth/login','/api/auth/me','/api/auth/logout','/api/dashboard']) {
