@@ -214,7 +214,7 @@ function App() {
   const t = copy[lang]
   const [config, setConfig] = useState(fallbackConfig)
   const [form, setForm] = useState({ name: '', contact: '', date: '', service: t.formServiceOptions[0], note: '' })
-  const [formMessage, setFormMessage] = useState('')
+  const [formMessage, setFormMessage] = useState('')\n  const attribution = useMemo(() => {\n    const p = new URLSearchParams(window.location.search)\n    return {\n      utmSource: p.get('utm_source') || p.get('source') || '',\n      utmMedium: p.get('utm_medium') || '',\n      utmCampaign: p.get('utm_campaign') || '',\n      ref: p.get('ref') || ''\n    }\n  }, [])
 
   useEffect(() => {
     fetch('/Acupuncture/config/site.json', { cache: 'no-store' })
@@ -272,7 +272,7 @@ function App() {
       `Услуга: ${form.service || '—'}`,
       `Организационная заметка: ${form.note || '—'}`,
       '',
-      'Не отправлены медицинские документы или диагнозы.'
+      `Источник: ${attribution.utmSource || attribution.ref || 'direct'}`,\n      attribution.utmMedium ? `渠道: ${attribution.utmMedium}` : '',\n      attribution.utmCampaign ? `Campaign: ${attribution.utmCampaign}` : '',\n      '',\n      'Не отправлены медицинские документы или диагнозы.'
     ].join('\n')
     const url = telegramUrl.includes('?') ? `${telegramUrl}&text=${encodeURIComponent(text)}` : `${telegramUrl}?text=${encodeURIComponent(text)}`
     window.open(url, '_blank', 'noopener,noreferrer')
