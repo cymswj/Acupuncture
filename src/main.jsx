@@ -217,7 +217,7 @@ function App() {
   const [formMessage, setFormMessage] = useState('')\n  const attribution = useMemo(() => {\n    const p = new URLSearchParams(window.location.search)\n    return {\n      utmSource: p.get('utm_source') || p.get('source') || '',\n      utmMedium: p.get('utm_medium') || '',\n      utmCampaign: p.get('utm_campaign') || '',\n      ref: p.get('ref') || ''\n    }\n  }, [])
 
   useEffect(() => {
-    fetch('/Acupuncture/config/site.json', { cache: 'no-store' })
+    fetch(`${import.meta.env.BASE_URL}config/site.json`, { cache: 'no-store' })
       .then(r => r.ok ? r.json() : Promise.reject(new Error('config unavailable')))
       .then(data => {
         setConfig(prev => ({ ...prev, ...data, contact: { ...prev.contact, ...(data.contact || {}) }, hospital: { ...prev.hospital, ...(data.hospital || {}) }, seo: { ...prev.seo, ...(data.seo || {}) } }))
@@ -230,11 +230,12 @@ function App() {
   }, [])
 
   const meta = useMemo(() => {
-    const slug = lang === 'ru' ? '' : lang + '/'
+    const path = window.location.pathname.toLowerCase()
+    const localePath = path.includes('/zh/') ? 'zh/' : path.includes('/en/') ? 'en/' : path.includes('/ru/') ? 'ru/' : ''
     const title = config.seo?.[lang]?.title || (lang === 'ru' ? config.seo.defaultTitle : `${config.brand.name} | ${t.heroTitle}`)
     const description = config.seo?.[lang]?.description || config.seo.defaultDescription
     const keywords = config.seo?.[lang]?.keywords || config.seo.keywords
-    const canonical = `${config.seo.siteUrl}${slug}`
+    const canonical = `${config.seo.siteUrl}${localePath}`
     const schema = {
       '@context': 'https://schema.org',
       '@graph': [
@@ -254,7 +255,7 @@ function App() {
   }, [lang, t.formServiceOptions])
 
   const hospital = config.hospital
-  const activeDoctor = config.doctors?.find(d => d.enabled !== false)
+  const activeDoctor = config.doctors?.find(d => d.enabled === true)
   const telegramUrl = config.contact?.telegramUrl || ''
   const telegramHandle = config.contact?.telegramHandle || ''
   const scroll = id => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
