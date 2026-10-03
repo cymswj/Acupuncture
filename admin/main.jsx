@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { LEAD_STAGES, listLeads, saveLead, updateLead, deleteLead, exportLeadsCsv } from '../src/crm.js'
 import { trackEvent, readEvents } from '../src/analytics.js'
@@ -14,10 +14,166 @@ const stageLabels = {
   closed: 'Закрыт',
 }
 
+const stageLabelsZh = {
+  new: '新线索',
+  qualified: '已筛选',
+  appointment_requested: '已提交预约',
+  confirmed: '已确认',
+  visited: '已到院',
+  followup: '复诊',
+  closed: '已关闭',
+}
+
+const LOCAL_TOKEN_KEY = 'sanya_tcm_admin_session_v1'
+
+function normalizeLead(row) {
+  return {
+    id: row.id,
+    createdAt: row.created_at || row.createdAt || '',
+    updatedAt: row.updated_at || row.updatedAt || '',
+    stage: row.stage || 'new',
+    source: row.source || 'direct',
+    medium: row.medium || '',
+    campaign: row.campaign || '',
+    language: row.language || 'ru',
+    name: row.name || '',
+    contact: row.contact || '',
+    preferredDate: row.preferred_date || row.preferredDate || '',
+    service: row.service || '',
+    appointmentDate: row.appointment_date || row.appointmentDate || '',
+    visitDate: row.visit_date || row.visitDate || '',
+    followupDate: row.followup_date || row.followupDate || '',
+    valueCny: row.value_cny ?? row.valueCny ?? '',
+    owner: row.owner || '',
+    note: '',
+  }
+}
+
 function App() {
-  const [leads, setLeads] = useState(listLeads())
+  const [config, setConfig] = useState(null)
+  const [configError, setConfigError] = useState('')
+  const [remoteMode, setRemoteMode] = useState(false)
+  const [token, setToken] = useState(() => sessionStorage.getItem(LOCAL_TOKEN_KEY) || '')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [authChecked, setAuthChecked] = useState(false)
+  const [authMessage, setAuthMessage] = useState('')
+  const [leads, setLeads] = useState([])
   const [stage, setStage] = useState('')
-  const stats = useMemo(() => {
+  const [dashboard, setDashboard] = useState(null)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    fetch('/Acupuncture/config/site.json', { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : Promise.reject(new Error('config unavailable')))
+      .then(data => {
+        setConfig(data)
+        const enabled = Boolean(data.adminApi?.enabled && data.adminApi?.baseUrl)
+        setRemoteMode(enabled)
+        setAuthChecked(!enabled)
+      })
+      .catch(() => {
+        setConfigError('网站配置无法加载。')
+        setAuthChecked(true)
+      })
+  }, [])
+
+  const baseUrl = (config?.adminApi?.baseUrl || '').replace(/\/$/, '')
+
+  async function api(path, options = {}) {
+    const headers = { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(options.headers || {}) }
+    if (token) headers.Authorization = 'Bearer ' + token
+    const response = await fetch(baseUrl + path, { ...options, headers })
+    let body = null
+    try { body = await response.json() } catch {}
+    if (!response.ok) {
+      const error = new Error(body?.error || 'request failed')
+      error.status = response.status
+      throw error
+    }
+    return body
+  }
+
+  async function verifySession() {
+    if (!remoteMode) return
+    if (!token) {
+      setAuthChecked(true)
+      return
+    }
+    try {
+      const me = await api('/api/auth/me')
+      setAuthMessage('')
+      setUsername(me.username || '')
+    } catch {
+      sessionStorage.removeItem(LOCAL_TOKEN_KEY)
+      setToken('')
+      setUsername('')
+    } finally {
+      setAuthChecked(true)
+    }
+  }
+
+  async function login(e) {
+    e.preventDefault()
+    setAuthMessage('')
+    setLoading(true)
+    try {
+      const response = await fetch(baseUrl + '/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      })
+      const body = await response.json()
+      if (!response.ok) throw new Error(body?.error || 'login failed')
+      sessionStorage.setItem(LOCAL_TOKEN_KEY, body.token)
+      setToken(body.token)
+      setPassword('')
+      setUsername(body.username || username)
+    } catch (error) {
+      setAuthMessage(error.message === 'too many login attempts' ? '尝试次数过多，请稍后再试。' : '登录失败，请检查账号和密码。')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function logout() {
+    try { await api('/api/auth/logout', { method: 'POST' }) } catch {}
+    sessionStorage.removeItem(LOCAL_TOKEN_KEY)
+    setToken('')
+    setLeads([])
+    setDashboard(null)
+    setUsername('')
+  }
+
+  async function refreshRemote() {
+    setLoading(true)
+    try {
+      const [leadData, dashboardData] = await Promise.all([api('/api/leads'), api('/api/dashboard')])
+      setLeads((leadData.leads || []).map(normalizeLead))
+      setDashboard(dashboardData)
+      setAuthMessage('')
+    } catch (error) {
+      if (error.status === 401) {
+        sessionStorage.removeItem(LOCAL_TOKEN_KEY)
+        setToken('')
+        setUsername('')
+      } else {
+        setAuthMessage('后台数据读取失败，请检查 API 和数据库。')
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (remoteMode) verifySession()
+  }, [remoteMode])
+
+  useEffect(() => {
+    if (remoteMode && authChecked && token) refreshRemote()
+  }, [remoteMode, authChecked, token])
+
+  const localStats = useMemo(() => {
     const sources = {}
     leads.forEach(x => { sources[x.source || 'direct'] = (sources[x.source || 'direct'] || 0) + 1 })
     const topSource = Object.entries(sources).sort((x,y) => y[1] - x[1])[0]
@@ -30,24 +186,46 @@ function App() {
       events: readEvents().length,
     }
   }, [leads])
+
+  const remoteStats = dashboard?.totals || {}
+  const stats = remoteMode ? {
+    total: remoteStats.leads || 0,
+    confirmed: remoteStats.confirmed || 0,
+    visited: remoteStats.visited || 0,
+    followup: remoteStats.followup || 0,
+    topSource: dashboard?.sources?.[0] ? dashboard.sources[0].source + ' (' + dashboard.sources[0].count + ')' : '—',
+    events: remoteStats.events || 0,
+  } : localStats
+
   const filtered = useMemo(() => stage ? leads.filter(x => x.stage === stage) : leads, [leads, stage])
+  const remoteStageCount = s => dashboard?.stageCounts?.[s] || 0
 
-  const refresh = () => setLeads(listLeads())
-
-  function move(id, next) {
+  function moveLocal(id, next) {
     updateLead(id, { stage: next })
     trackEvent('lead_stage_changed', { stage: next })
-    refresh()
+    setLeads(listLeads())
   }
 
-  function remove(id) {
+  async function moveRemote(id, next, extra = {}) {
+    try {
+      await api('/api/leads/' + encodeURIComponent(id), {
+        method: 'PATCH',
+        body: JSON.stringify({ stage: next, ...extra }),
+      })
+      await refreshRemote()
+    } catch {
+      setAuthMessage('更新 Lead 失败。')
+    }
+  }
+
+  function removeLocal(id) {
     deleteLead(id)
-    refresh()
+    setLeads(listLeads())
   }
 
-  function addDemo() {
+  async function addDemo() {
     const id = 'DEMO-' + Date.now().toString().slice(-8)
-    saveLead({
+    const lead = {
       id,
       source: 'demo',
       language: 'ru',
@@ -55,9 +233,18 @@ function App() {
       contact: '@demo',
       preferredDate: new Date().toISOString().slice(0,10),
       service: 'Иглоукалывание',
-      note: 'DEMO — удалить после тестирования',
-    })
-    refresh()
+    }
+    try {
+      if (remoteMode) {
+        await api('/api/leads', { method: 'POST', body: JSON.stringify(lead) })
+        await refreshRemote()
+      } else {
+        saveLead({ ...lead, note: 'DEMO — удалить после тестирования' })
+        setLeads(listLeads())
+      }
+    } catch {
+      setAuthMessage('无法创建测试 Lead。')
+    }
   }
 
   function download() {
@@ -70,9 +257,28 @@ function App() {
     URL.revokeObjectURL(url)
   }
 
+  if (configError) return <div className="adminPage"><div className="adminShell"><div className="emptyCard">{configError}</div></div></div>
+  if (!config) return <div className="adminPage"><div className="adminShell"><div className="emptyCard">正在加载后台配置…</div></div></div>
+
+  if (remoteMode && !authChecked) return <div className="adminPage"><div className="adminShell"><div className="emptyCard">正在验证登录状态…</div></div></div>
+
+  if (remoteMode && !token) {
+    return <div className="adminPage"><div className="adminShell" style={{maxWidth:520}}>
+      <div className="adminTop"><div><div className="kicker">SANYA TCM · ADMIN</div><h1>后台登录</h1><p>远程 CRM 模式。账号和密码只提交到配置的 HTTPS API，不保存在网站代码中。</p></div></div>
+      <form className="requestBox" onSubmit={login} style={{marginTop:20}}>
+        <label><span>账号</span><input required value={username} onChange={e=>setUsername(e.target.value)} autoComplete="username" /></label>
+        <label><span>密码</span><input required type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="current-password" /></label>
+        <button className="btn primary" type="submit" disabled={loading}>{loading ? '登录中…' : '登录后台'}</button>
+        {authMessage ? <p className="formMessage">{authMessage}</p> : null}
+      </form>
+      <div className="emptyCard" style={{marginTop:16}}>退出当前远程模式？需要在 config/site.json 中关闭 adminApi.enabled。</div>
+    </div></div>
+  }
+
   return <div className="adminPage">
     <div className="adminShell">
-      <div className="adminTop"><div><div className="kicker">SANYA TCM · CRM LITE</div><h1>Пациенты и записи</h1><p>CRM Lite：当前为本机测试模式。连接共享 API 后，团队可使用同一套 Lead 数据。不要存储医疗文件或诊断。</p></div><div className="adminActions"><button onClick={addDemo}>Добавить тест</button><button onClick={download}>Экспорт CSV</button><a href="/Acupuncture/">Сайт ↗</a></div></div>
+      <div className="adminTop"><div><div className="kicker">SANYA TCM · {remoteMode ? 'SHARED CRM' : 'CRM LITE'}</div><h1>患者与预约</h1><p>{remoteMode ? '共享后端模式：Lead 与漏斗统计来自 PostgreSQL。请勿在这里保存病历、MRI、CT、诊断等敏感医疗资料。' : '当前为本机测试模式。配置远程 API 后，团队可使用同一套 Lead 数据。'}</p></div><div className="adminActions">{remoteMode ? <><span style={{alignSelf:'center'}}>👤 {username || 'admin'}</span><button onClick={refreshRemote}>刷新</button><button onClick={logout}>退出</button></> : null}<button onClick={addDemo}>Добавить тест</button>{!remoteMode ? <button onClick={download}>Экспорт CSV</button> : null}<a href="/Acupuncture/">Сайт ↗</a></div></div>
+      {authMessage ? <div className="formMessage" style={{marginBottom:16}}>{authMessage}</div> : null}
       <div className="metricGrid">
         <div className="metric"><span>Всего Lead</span><strong>{stats.total}</strong></div>
         <div className="metric"><span>Подтверждено</span><strong>{stats.confirmed}</strong></div>
@@ -81,8 +287,8 @@ function App() {
         <div className="metric"><span>Главный источник</span><strong>{stats.topSource}</strong></div>
         <div className="metric"><span>事件</span><strong>{stats.events}</strong></div>
       </div>
-      <div className="stageBar"><button className={!stage?'active':''} onClick={()=>setStage('')}>Все ({leads.length})</button>{LEAD_STAGES.map(s=><button key={s} className={stage===s?'active':''} onClick={()=>setStage(s)}>{stageLabels[s]} ({leads.filter(x=>x.stage===s).length})</button>)}</div>
-      <div className="crmGrid">{filtered.length ? filtered.map(lead=><article className="leadCard" key={lead.id}><div className="leadTop"><strong>{lead.name || 'Без имени'}</strong><span>{stageLabels[lead.stage] || lead.stage}</span></div><div className="leadMeta"><span>{lead.id}</span><span>{lead.source || 'direct'}</span><span>{lead.preferredDate || '—'}</span><span>{lead.service || '—'}</span><span>到院: {lead.visitDate || '—'}</span><span>复诊: {lead.followupDate || '—'}</span></div><p>{lead.contact || '—'}</p><p className="leadNote">{lead.note || ''}</p><div className="leadActions"><select value={lead.stage} onChange={e=>move(lead.id,e.target.value)}>{LEAD_STAGES.map(s=><option value={s} key={s}>{stageLabels[s]}</option>)}</select><button onClick={()=>{ updateLead(lead.id,{visitDate:new Date().toISOString().slice(0,10),stage:'visited'}); trackEvent('visit_completed',{leadStage:'visited'}); refresh() }}>已到院</button><button onClick={()=>{ updateLead(lead.id,{followupDate:new Date().toISOString().slice(0,10),stage:'followup'}); trackEvent('followup_completed',{leadStage:'followup'}); refresh() }}>复诊</button><button onClick={()=>remove(lead.id)}>删除</button></div></article>) : <div className="emptyCard">暂无 Lead。可以先添加测试客户验证流程。</div>}</div>
+      <div className="stageBar"><button className={!stage?'active':''} onClick={()=>setStage('')}>Все ({leads.length})</button>{LEAD_STAGES.map(s=><button key={s} className={stage===s?'active':''} onClick={()=>setStage(s)}>{stageLabels[s]} ({remoteMode ? remoteStageCount(s) : leads.filter(x=>x.stage===s).length})</button>)}</div>
+      <div className="crmGrid">{filtered.length ? filtered.map(lead=><article className="leadCard" key={lead.id}><div className="leadTop"><strong>{lead.name || 'Без имени'}</strong><span>{stageLabels[lead.stage] || lead.stage}</span></div><div className="leadMeta"><span>{lead.id}</span><span>{lead.source || 'direct'}</span><span>{lead.preferredDate || '—'}</span><span>{lead.service || '—'}</span><span>到院: {lead.visitDate || '—'}</span><span>复诊: {lead.followupDate || '—'}</span></div><p>{lead.contact || '—'}</p><p className="leadNote">{remoteMode ? '' : lead.note || ''}</p><div className="leadActions"><select value={lead.stage} onChange={e=>remoteMode ? moveRemote(lead.id,e.target.value) : moveLocal(lead.id,e.target.value)}>{LEAD_STAGES.map(s=><option value={s} key={s}>{stageLabels[s]}</option>)}</select><button onClick={()=>remoteMode ? moveRemote(lead.id,'visited',{visitDate:new Date().toISOString().slice(0,10)}) : (updateLead(lead.id,{visitDate:new Date().toISOString().slice(0,10),stage:'visited'}), trackEvent('visit_completed',{leadStage:'visited'}), setLeads(listLeads()))}>已到院</button><button onClick={()=>remoteMode ? moveRemote(lead.id,'followup',{followupDate:new Date().toISOString().slice(0,10)}) : (updateLead(lead.id,{followupDate:new Date().toISOString().slice(0,10),stage:'followup'}), trackEvent('followup_completed',{leadStage:'followup'}), setLeads(listLeads()))}>{stageLabelsZh.followup}</button>{!remoteMode ? <button onClick={()=>removeLocal(lead.id)}>删除</button> : null}</div></article>) : <div className="emptyCard">暂无 Lead。可以先添加测试客户验证流程。</div>}</div>
     </div>
   </div>
 }
