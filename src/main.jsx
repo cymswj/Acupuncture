@@ -214,7 +214,18 @@ function App() {
   const t = copy[lang]
   const [config, setConfig] = useState(fallbackConfig)
   const [form, setForm] = useState({ name: '', contact: '', date: '', service: t.formServiceOptions[0], note: '' })
-  const [formMessage, setFormMessage] = useState('')\n  const attribution = useMemo(() => {\n    const p = new URLSearchParams(window.location.search)\n    return {\n      utmSource: p.get('utm_source') || p.get('source') || '',\n      utmMedium: p.get('utm_medium') || '',\n      utmCampaign: p.get('utm_campaign') || '',\n      ref: p.get('ref') || ''\n    }\n  }, [])
+  const [formMessage, setFormMessage] = useState('')
+  const [preparedMessage, setPreparedMessage] = useState('')
+
+  const attribution = useMemo(() => {
+    const p = new URLSearchParams(window.location.search)
+    return {
+      utmSource: p.get('utm_source') || p.get('source') || '',
+      utmMedium: p.get('utm_medium') || '',
+      utmCampaign: p.get('utm_campaign') || '',
+      ref: p.get('ref') || ''
+    }
+  }, [])
 
   useEffect(() => {
     fetch(`${import.meta.env.BASE_URL}config/site.json`, { cache: 'no-store' })
