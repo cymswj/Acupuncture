@@ -257,6 +257,14 @@ function App() {
   const telegramUrl = config.contact?.telegramUrl || ''
   const telegramHandle = config.contact?.telegramHandle || ''
   const scroll = id => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  const seoLinks = [
+    ['/Acupuncture/ru/acupuncture/', 'Иглоукалывание в Санье: как начать'],
+    ['/Acupuncture/ru/hospital/', 'Больница традиционной китайской медицины в Санье'],
+    ['/Acupuncture/ru/pricing/', 'Сколько стоит иглоукалывание в Санье'],
+    ['/Acupuncture/ru/doctors/', 'Врачи отделения иглоукалывания'],
+    ['/Acupuncture/ru/faq/', 'FAQ для русскоязычных пациентов'],
+    ['/Acupuncture/ru/prepare-for-visit/', 'Как подготовиться к визиту']
+  ]
 
   function switchLang(next) {
     const base = '/Acupuncture/'
@@ -315,6 +323,8 @@ function App() {
       <section className="section soft" id="pricing"><div className="container price"><div><div className="kicker">05 · PRICING</div><h2>{t.priceTitle}</h2><p>{t.priceText}</p></div><div className="notice">{t.priceNote}</div></div></section>
 
       <section className="section" id="faq"><div className="container faq"><div><div className="kicker">06 · FAQ</div><h2>{t.faqTitle}</h2></div><div>{t.faqs.map(f=><details key={f[0]}><summary>{f[0]}<span>＋</span></summary><p>{f[1]}</p></details>)}</div></div></section>
+
+      {lang === 'ru' ? <section className="section soft" id="resources"><div className="container"><div className="kicker">07 · РУССКИЕ РЕСУРСЫ</div><div className="resourceGrid">{seoLinks.map(([href,label])=><a className="resourceCard" key={href} href={href}><span>{label}</span><strong>→</strong></a>)}</div></div></section> : null}
 
       <section className="cta" id="request"><div className="container ctaInner"><div><div className="kicker">CONTACT</div><h2>{t.ctaTitle}</h2><p>{t.ctaText}</p></div><div className="ctaContact">{telegramUrl ? <a className="btn primary" href={telegramUrl} target="_blank" rel="noreferrer">{telegramHandle ? `Telegram ${telegramHandle}` : 'Telegram'} →</a> : <span className="configBadge">{t.formNoTelegram}</span>}</div></div>
         <div className="container requestBox"><form onSubmit={submitForm}><h3>{t.formTitle}</h3><div className="formGrid"><label><span>{t.formName}</span><input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} autoComplete="name" /></label><label><span>{t.formContact}</span><input value={form.contact} onChange={e=>setForm({...form,contact:e.target.value})} autoComplete="tel" /></label><label><span>{t.formDate}</span><input type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})} /></label><label><span>{t.formService}</span><select value={form.service} onChange={e=>setForm({...form,service:e.target.value})}>{t.formServiceOptions.map(x=><option key={x}>{x}</option>)}</select></label></div><label><span>{t.formNote}</span><textarea rows="3" value={form.note} onChange={e=>setForm({...form,note:e.target.value})} placeholder="Не указывайте диагнозы и не прикрепляйте медицинские документы." /></label><label className="check"><input type="checkbox" required /> <span>{t.formConsent}</span></label><button className="btn primary" type="submit">{t.formSubmit}</button>{formMessage ? <p className="formMessage">{formMessage}</p> : null}</form></div>
