@@ -16,7 +16,6 @@ const stageLabels = {
 
 const stageLabelsZh = stageLabels
 
-const LOCAL_TOKEN_KEY = 'sanya_tcm_admin_session_v1'
 
 function normalizeLead(row) {
   return {
@@ -45,7 +44,7 @@ function App() {
   const [config, setConfig] = useState(null)
   const [configError, setConfigError] = useState('')
   const [remoteMode, setRemoteMode] = useState(false)
-  const [token, setToken] = useState(() => sessionStorage.getItem(LOCAL_TOKEN_KEY) || '')
+  const [token, setToken] = useState('cookie')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [authChecked, setAuthChecked] = useState(false)
@@ -75,7 +74,7 @@ function App() {
   async function api(path, options = {}) {
     const headers = { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(options.headers || {}) }
     if (token) headers.Authorization = 'Bearer ' + token
-    const response = await fetch(baseUrl + path, { ...options, headers })
+    const response = await fetch(baseUrl + path, { ...options, headers, credentials: 'include' })
     let body = null
     try { body = await response.json() } catch {}
     if (!response.ok) {
@@ -97,7 +96,6 @@ function App() {
       setAuthMessage('')
       setUsername(me.username || '')
     } catch {
-      sessionStorage.removeItem(LOCAL_TOKEN_KEY)
       setToken('')
       setUsername('')
     } finally {
@@ -113,12 +111,12 @@ function App() {
       const response = await fetch(baseUrl + '/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ username, password }),
       })
       const body = await response.json()
       if (!response.ok) throw new Error(body?.error || 'login failed')
-      sessionStorage.setItem(LOCAL_TOKEN_KEY, body.token)
-      setToken(body.token)
+      setToken('cookie')
       setPassword('')
       setUsername(body.username || username)
     } catch (error) {
