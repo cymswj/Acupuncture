@@ -275,7 +275,7 @@ function App() {
 
   return <div className="adminPage">
     <div className="adminShell">
-      <div className="adminTop"><div><div className="kicker">SANYA TCM · {remoteMode ? '共享 CRM' : '本机 CRM'}</div><h1>线索与预约</h1><p>{remoteMode ? '共享后端模式：线索与漏斗统计来自 PostgreSQL。请勿在这里保存病历、MRI、CT、诊断等敏感医疗资料。' : '当前为本机测试模式。配置远程 API 后，团队可使用同一套共享数据。'}</p></div><div className="adminActions">{remoteMode ? <><span style={{alignSelf:'center'}}>👤 {username || 'admin'}</span><button onClick={refreshRemote}>刷新</button><button onClick={download}>导出 CSV</button><button onClick={logout}>退出</button></> : null}<button onClick={addDemo}>新增测试</button>{!remoteMode ? <button onClick={download}>导出 CSV</button> : null}<a href="/Acupuncture/">返回网站 ↗</a></div></div>
+      <div className="adminTop"><div><div className="kicker">SANYA TCM · {remoteMode ? '共享 CRM' : '本机 CRM'}</div><h1>线索与预约</h1><p>{remoteMode ? '共享后端模式：线索与漏斗统计来自 PostgreSQL。请勿在这里保存病历、MRI、CT、诊断等敏感医疗资料。' : '当前为本机测试模式。配置远程 API 后，团队可使用同一套共享数据。'}</p></div><div className="adminActions">{remoteMode ? <><span style={{alignSelf:'center'}}>👤 {username || 'admin'}</span><button onClick={refreshRemote}>刷新</button><button onClick={download}>导出 CSV</button><button onClick={logout}>退出</button></> : null}{!remoteMode ? <><button onClick={addDemo}>新增测试</button><button onClick={download}>导出 CSV</button></> : null}<a href="/Acupuncture/">返回网站 ↗</a></div></div>
       {authMessage ? <div className="formMessage" style={{marginBottom:16}}>{authMessage}</div> : null}
       <div className="metricGrid">
         <div className="metric"><span>全部线索</span><strong>{stats.total}</strong></div>
