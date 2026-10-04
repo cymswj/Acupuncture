@@ -44,7 +44,7 @@ function App() {
   const [config, setConfig] = useState(null)
   const [configError, setConfigError] = useState('')
   const [remoteMode, setRemoteMode] = useState(false)
-  const [token, setToken] = useState('cookie')
+  const [authenticated, setAuthenticated] = useState(false)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [authChecked, setAuthChecked] = useState(false)
@@ -73,7 +73,6 @@ function App() {
 
   async function api(path, options = {}) {
     const headers = { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(options.headers || {}) }
-    if (token) headers.Authorization = 'Bearer ' + token
     const response = await fetch(baseUrl + path, { ...options, headers, credentials: 'include' })
     let body = null
     try { body = await response.json() } catch {}
@@ -87,7 +86,7 @@ function App() {
 
   async function verifySession() {
     if (!remoteMode) return
-    if (!token) {
+    if (!authenticated) {
       setAuthChecked(true)
       return
     }
@@ -116,7 +115,7 @@ function App() {
       })
       const body = await response.json()
       if (!response.ok) throw new Error(body?.error || 'login failed')
-      setToken('cookie')
+      setAuthenticated(false)
       setPassword('')
       setUsername(body.username || username)
     } catch (error) {
@@ -128,8 +127,7 @@ function App() {
 
   async function logout() {
     try { await api('/api/auth/logout', { method: 'POST' }) } catch {}
-    sessionStorage.removeItem(LOCAL_TOKEN_KEY)
-    setToken('')
+    setAuthenticated(false)
     setLeads([])
     setDashboard(null)
     setUsername('')
@@ -144,8 +142,7 @@ function App() {
       setAuthMessage('')
     } catch (error) {
       if (error.status === 401) {
-        sessionStorage.removeItem(LOCAL_TOKEN_KEY)
-        setToken('')
+        setAuthenticated(false)
         setUsername('')
       } else {
         setAuthMessage('后台数据读取失败，请检查 API 和数据库。')
@@ -160,7 +157,7 @@ function App() {
   }, [remoteMode])
 
   useEffect(() => {
-    if (remoteMode && authChecked && token) refreshRemote()
+    if (remoteMode && authChecked && authenticated) refreshRemote()
   }, [remoteMode, authChecked, token])
 
   const localStats = useMemo(() => {
@@ -266,7 +263,7 @@ function App() {
 
   if (remoteMode && !authChecked) return <div className="adminPage"><div className="adminShell"><div className="emptyCard">正在验证登录状态…</div></div></div>
 
-  if (remoteMode && !token) {
+  if (remoteMode && !authenticated) {
     return <div className="adminPage"><div className="adminShell" style={{maxWidth:520}}>
       <div className="adminTop"><div><div className="kicker">SANYA TCM · 后台</div><h1>后台登录</h1><p>远程 CRM 模式。账号和密码只提交到配置的 HTTPS API，不保存在网站代码中。</p></div></div>
       <form className="requestBox" onSubmit={login} style={{marginTop:20}}>
