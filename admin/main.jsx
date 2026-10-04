@@ -95,7 +95,7 @@ function App() {
       setAuthMessage('')
       setUsername(me.username || '')
     } catch {
-      setToken('')
+      setAuthenticated(false)
       setUsername('')
     } finally {
       setAuthChecked(true)
@@ -115,7 +115,7 @@ function App() {
       })
       const body = await response.json()
       if (!response.ok) throw new Error(body?.error || 'login failed')
-      setAuthenticated(false)
+      setAuthenticated(true)
       setPassword('')
       setUsername(body.username || username)
     } catch (error) {
@@ -158,7 +158,7 @@ function App() {
 
   useEffect(() => {
     if (remoteMode && authChecked && authenticated) refreshRemote()
-  }, [remoteMode, authChecked, token])
+  }, [remoteMode, authChecked, authenticated])
 
   const localStats = useMemo(() => {
     const sources = {}
