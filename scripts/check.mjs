@@ -77,6 +77,9 @@ if (!backend.includes('timingSafeEqual')) throw new Error('Password verification
 if (!backend.includes('admin_sessions')) throw new Error('Database-backed admin sessions are missing')
 if (!backend.includes('allowPublicRequest')) throw new Error('Public endpoint rate limiting is missing')
 if (!backend.includes('createLeadId')) throw new Error('Server-generated Lead IDs are missing')
+if (!backend.includes('HttpOnly')) throw new Error('HttpOnly session cookie is missing')
+if (!backend.includes('Access-Control-Allow-Credentials')) throw new Error('credentialed CORS support is missing')
+if (admin.includes('sessionStorage') || admin.includes('localStorage')) throw new Error('Admin must not store authentication state in browser storage')
 if (backend.includes("ADMIN_PASSWORD = process.env")) throw new Error('Do not support plaintext admin passwords')
 
 console.log('Repository checks passed')
