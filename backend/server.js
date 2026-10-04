@@ -77,11 +77,12 @@ function parseCookies(req) {
     })
   )
 }
+function safeDecode(value) { try { return decodeURIComponent(value) } catch { return '' } }
 function setSessionCookie(res, token, maxAgeSeconds) {
   res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; Max-Age=${maxAgeSeconds}; HttpOnly; Secure; SameSite=${SESSION_SAMESITE}`)
 }
 function clearSessionCookie(res) {
-  res.setHeader('Set-Cookie', `${SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`)
+  res.setHeader('Set-Cookie', `${SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=${SESSION_SAMESITE}`)
 }
 
 function isRateLimited(ip) {
