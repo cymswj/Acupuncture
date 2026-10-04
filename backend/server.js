@@ -258,7 +258,6 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'POST' && url.pathname === '/api/auth/logout') {
-      if (!requireJson(req)) return json(res, 415, { error: 'content-type must be application/json' })
       if (!requestFromAllowedOrigin(req)) return json(res, 403, { error: 'origin not allowed' })
       const session = await requireAdmin(req)
       const cookies = parseCookies(req)
