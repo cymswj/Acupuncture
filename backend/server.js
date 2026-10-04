@@ -10,6 +10,7 @@ const ADMIN_TOKEN = process.env.ADMIN_TOKEN || ''
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin'
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || ''
 const SESSION_TTL_HOURS = Math.max(1, Math.min(168, Number(process.env.SESSION_TTL_HOURS || 12)))
+const SESSION_SAMESITE = ['strict', 'lax', 'none'].includes(String(process.env.SESSION_SAMESITE || 'lax').toLowerCase()) ? String(process.env.SESSION_SAMESITE || 'lax').toLowerCase() : 'lax'
 const ORIGIN = process.env.CORS_ORIGIN || 'https://cymswj.github.io'
 const stages = new Set(['new','qualified','appointment_requested','confirmed','visited','followup','closed'])
 const publicEvents = new Set(['page_view','resource_view','cta_click','form_start','lead_created','contact_opened','appointment_requested','appointment_confirmed','visit_completed','followup_due','followup_completed','lead_stage_changed'])
@@ -77,7 +78,7 @@ function parseCookies(req) {
   )
 }
 function setSessionCookie(res, token, maxAgeSeconds) {
-  res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; Max-Age=${maxAgeSeconds}; HttpOnly; Secure; SameSite=Lax`)
+  res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; Max-Age=${maxAgeSeconds}; HttpOnly; Secure; SameSite=${SESSION_SAMESITE}`)
 }
 function clearSessionCookie(res) {
   res.setHeader('Set-Cookie', `${SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`)
