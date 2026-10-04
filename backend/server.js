@@ -15,15 +15,26 @@ const stages = new Set(['new','qualified','appointment_requested','confirmed','v
 const publicEvents = new Set(['page_view','resource_view','cta_click','form_start','lead_created','contact_opened','appointment_requested','appointment_confirmed','visit_completed','followup_due','followup_completed','lead_stage_changed'])
 const loginAttempts = new Map()
 const publicAttempts = new Map()
+const SESSION_COOKIE = '__Host-sanya_session'
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', ORIGIN)
+  res.setHeader('Access-Control-Allow-Credentials', 'true')
   res.setHeader('Vary', 'Origin')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Admin-Token')
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,OPTIONS')
+  res.setHeader('Access-Control-Max-Age', '600')
 }
+function securityHeaders(res) {
+  res.setHeader('X-Content-Type-Options', 'nosniff')
+  res.setHeader('Referrer-Policy', 'no-referrer')
+  res.setHeader('X-Frame-Options', 'DENY')
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
+}
+
 function json(res, status, body) {
   cors(res)
+  securityHeaders(res)
   res.setHeader('Content-Type', 'application/json; charset=utf-8')
   res.writeHead(status)
   res.end(body == null ? '' : JSON.stringify(body))
@@ -50,9 +61,28 @@ function readBody(req) {
 }
 
 function clientIp(req) {
-  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim()
-  return forwarded || req.socket.remoteAddress || 'unknown'
+  return String(req.headers['x-real-ip'] || req.socket.remoteAddress || 'unknown').trim()
 }
+function requestFromAllowedOrigin(req) {
+  const origin = String(req.headers.origin || '')
+  return !origin || origin === ORIGIN
+}
+function parseCookies(req) {
+  const raw = String(req.headers.cookie || '')
+  return Object.fromEntries(
+    raw.split(';').map(part => part.trim()).filter(Boolean).map(part => {
+      const index = part.indexOf('=')
+      return index < 0 ? [part, ''] : [part.slice(0, index), decodeURIComponent(part.slice(index + 1))]
+    })
+  )
+}
+function setSessionCookie(res, token, maxAgeSeconds) {
+  res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; Max-Age=${maxAgeSeconds}; HttpOnly; Secure; SameSite=Lax`)
+}
+function clearSessionCookie(res) {
+  res.setHeader('Set-Cookie', `${SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`)
+}
+
 function isRateLimited(ip) {
   const now = Date.now()
   const item = loginAttempts.get(ip)
@@ -119,6 +149,10 @@ function verifyPassword(password) {
 function tokenHash(token) {
   return crypto.createHash('sha256').update(token).digest('hex')
 }
+async function audit(username, action, targetId, req, metadata = {}) {
+  await pool.query('INSERT INTO audit_logs(username,action,target_id,ip,metadata) VALUES($1,$2,$3,$4,$5)', [username, action, targetId || null, clientIp(req), metadata])
+}
+
 async function createSession(username) {
   const token = crypto.randomBytes(32).toString('base64url')
   const expires = new Date(Date.now() + SESSION_TTL_HOURS * 60 * 60 * 1000)
@@ -130,8 +164,10 @@ async function createSession(username) {
   return { token, expiresAt: expires.toISOString() }
 }
 async function getSession(req) {
+  const cookies = parseCookies(req)
+  const cookieToken = cookies[SESSION_COOKIE] || ''
   const auth = String(req.headers.authorization || '')
-  const bearer = auth.startsWith('Bearer ') ? auth.slice(7).trim() : ''
+  const bearer = auth.startsWith('Bearer ') ? auth.slice(7).trim() : cookieToken
   const legacy = String(req.headers['x-admin-token'] || '')
   if (legacy && ADMIN_TOKEN && legacy === ADMIN_TOKEN) {
     return { username: ADMIN_USERNAME, legacy: true }
@@ -193,13 +229,16 @@ const server = http.createServer(async (req, res) => {
       const input = await readBody(req)
       const username = String(input.username || '').trim()
       const password = String(input.password || '')
+      if (!requestFromAllowedOrigin(req)) return json(res, 403, { error: 'origin not allowed' })
       if (!ADMIN_PASSWORD_HASH || username !== ADMIN_USERNAME || !verifyPassword(password)) {
         recordFailedLogin(ip)
         return json(res, 401, { error: 'invalid credentials' })
       }
       clearFailedLogins(ip)
       const session = await createSession(username)
-      return json(res, 200, { ok: true, username, token: session.token, expiresAt: session.expiresAt })
+      setSessionCookie(res, session.token, SESSION_TTL_HOURS * 60 * 60)
+      await audit(username, 'login', null, req)
+      return json(res, 200, { ok: true, username, expiresAt: session.expiresAt })
     }
 
     if (req.method === 'GET' && url.pathname === '/api/auth/me') {
@@ -209,13 +248,18 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'POST' && url.pathname === '/api/auth/logout') {
-      const auth = String(req.headers.authorization || '')
-      const bearer = auth.startsWith('Bearer ') ? auth.slice(7).trim() : ''
+      if (!requestFromAllowedOrigin(req)) return json(res, 403, { error: 'origin not allowed' })
+      const session = await requireAdmin(req)
+      const cookies = parseCookies(req)
+      const bearer = cookies[SESSION_COOKIE] || ''
       if (bearer) await pool.query('DELETE FROM admin_sessions WHERE token_hash=$1', [tokenHash(bearer)])
+      if (session) await audit(session.username, 'logout', null, req)
+      clearSessionCookie(res)
       return json(res, 200, { ok: true })
     }
 
     if (req.method === 'POST' && url.pathname === '/api/leads') {
+      if (!requestFromAllowedOrigin(req)) return json(res, 403, { error: 'origin not allowed' })
       const ip = clientIp(req)
       if (!allowPublicRequest('lead', ip, 30, 15 * 60 * 1000)) return json(res, 429, { error: 'too many lead requests' })
       const lead = cleanLead(await readBody(req))
@@ -229,6 +273,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'POST' && url.pathname === '/api/events') {
+      if (!requestFromAllowedOrigin(req)) return json(res, 403, { error: 'origin not allowed' })
       const ip = clientIp(req)
       if (!allowPublicRequest('event', ip, 120, 15 * 60 * 1000)) return json(res, 429, { error: 'too many event requests' })
       const input = await readBody(req)
@@ -271,6 +316,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'PATCH' && url.pathname.startsWith('/api/leads/')) {
+      if (!requestFromAllowedOrigin(req)) return json(res, 403, { error: 'origin not allowed' })
       const session = await requireAdmin(req)
       if (!session) return json(res, 401, { error: 'unauthorized' })
       const id = decodeURIComponent(url.pathname.slice('/api/leads/'.length))
@@ -281,6 +327,7 @@ const server = http.createServer(async (req, res) => {
         'UPDATE leads SET stage=$1,updated_at=NOW(),appointment_date=COALESCE($2,appointment_date),visit_date=COALESCE($3,visit_date),followup_date=COALESCE($4,followup_date),value_cny=COALESCE($5,value_cny),owner=COALESCE($6,owner) WHERE id=$7',
         [stage,input.appointmentDate || null,input.visitDate || null,input.followupDate || null,input.valueCny || null,input.owner || null,id]
       )
+      await audit(session.username, 'lead_update', id, req, { stage })
       return json(res, 200, { ok: true, id, stage })
     }
 
