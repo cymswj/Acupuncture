@@ -259,5 +259,5 @@ React/Vite 多页面结构适合当前“营销首页 + SEO 专题页 + Admin”
 
 1. API 尚未部署到公网 HTTPS。
 2. Admin 仍未启用共享 CRM。
-3. 当前浏览器端 Admin 登录 token 暂存在 sessionStorage；正式生产前建议升级为 HttpOnly Secure Cookie / BFF 架构。OWASP 不建议把认证 token 放在 localStorage 或 sessionStorage。
+3. Admin 已改为 HttpOnly + Secure Cookie Session。默认 `SameSite=Lax`；若前台与 API 跨站部署，则将 `SESSION_SAMESITE=none` 并依靠 HTTPS + 严格 Origin 校验。
 4. 生产环境需要完整 RBAC、审计日志、备份/恢复、数据删除策略、监控与跨境数据合规评估。
