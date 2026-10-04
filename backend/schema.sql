@@ -44,3 +44,16 @@ CREATE TABLE IF NOT EXISTS admin_sessions (
 );
 CREATE INDEX IF NOT EXISTS idx_admin_sessions_expires_at ON admin_sessions(expires_at);
 CREATE INDEX IF NOT EXISTS idx_admin_sessions_username ON admin_sessions(username);
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id BIGSERIAL PRIMARY KEY,
+  occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  username TEXT NOT NULL,
+  action TEXT NOT NULL,
+  target_id TEXT,
+  ip TEXT,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb
+);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_occurred_at ON audit_logs(occurred_at);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_username ON audit_logs(username);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_target_id ON audit_logs(target_id);
