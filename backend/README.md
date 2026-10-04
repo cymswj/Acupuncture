@@ -47,9 +47,10 @@ GET /health
     ADMIN_USERNAME=admin
     ADMIN_PASSWORD_HASH=scrypt$...
     SESSION_TTL_HOURS=12
+    SESSION_SAMESITE=lax
     CORS_ORIGIN=https://cymswj.github.io
 
-旧版 ADMIN_TOKEN 仅用于过渡兼容；正式环境建议留空，让后台全部使用登录 session。
+旧版 ADMIN_TOKEN 仅用于过渡兼容；正式环境建议留空，让后台全部使用登录 session。Session 现在通过 HttpOnly + Secure Cookie 交换。若前台和 API 位于不同站点，需要将 `SESSION_SAMESITE` 设置为 `none`，同时保持 HTTPS；API 仍通过严格 Origin 校验防止跨站状态修改。
 
 ## Docker / VPS
 
