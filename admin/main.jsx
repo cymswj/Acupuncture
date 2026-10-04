@@ -86,12 +86,9 @@ function App() {
 
   async function verifySession() {
     if (!remoteMode) return
-    if (!authenticated) {
-      setAuthChecked(true)
-      return
-    }
     try {
       const me = await api('/api/auth/me')
+      setAuthenticated(true)
       setAuthMessage('')
       setUsername(me.username || '')
     } catch {
