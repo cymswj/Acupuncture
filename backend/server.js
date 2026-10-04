@@ -4,7 +4,8 @@ import fs from 'node:fs/promises'
 import pg from 'pg'
 
 const { Pool } = pg
-const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 10, idleTimeoutMillis: 30000, connectionTimeoutMillis: 5000 })
+pool.on('error', error => console.error('Unexpected PostgreSQL pool error', error))
 const PORT = Number(process.env.PORT || 8787)
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || ''
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin'
@@ -37,9 +38,15 @@ function json(res, status, body) {
   cors(res)
   securityHeaders(res)
   res.setHeader('Content-Type', 'application/json; charset=utf-8')
+  res.setHeader('Cache-Control', 'no-store')
   res.writeHead(status)
   res.end(body == null ? '' : JSON.stringify(body))
 }
+function requireJson(req) {
+  const contentType = String(req.headers['content-type'] || '').toLowerCase()
+  return contentType.startsWith('application/json')
+}
+
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let size = 0
@@ -226,6 +233,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'POST' && url.pathname === '/api/auth/login') {
+      if (!requireJson(req)) return json(res, 415, { error: 'content-type must be application/json' })
       const ip = clientIp(req)
       if (isRateLimited(ip)) return json(res, 429, { error: 'too many login attempts' })
       const input = await readBody(req)
@@ -250,6 +258,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'POST' && url.pathname === '/api/auth/logout') {
+      if (!requireJson(req)) return json(res, 415, { error: 'content-type must be application/json' })
       if (!requestFromAllowedOrigin(req)) return json(res, 403, { error: 'origin not allowed' })
       const session = await requireAdmin(req)
       const cookies = parseCookies(req)
@@ -261,6 +270,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'POST' && url.pathname === '/api/leads') {
+      if (!requireJson(req)) return json(res, 415, { error: 'content-type must be application/json' })
       if (!requestFromAllowedOrigin(req)) return json(res, 403, { error: 'origin not allowed' })
       const ip = clientIp(req)
       if (!allowPublicRequest('lead', ip, 30, 15 * 60 * 1000)) return json(res, 429, { error: 'too many lead requests' })
@@ -275,6 +285,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'POST' && url.pathname === '/api/events') {
+      if (!requireJson(req)) return json(res, 415, { error: 'content-type must be application/json' })
       if (!requestFromAllowedOrigin(req)) return json(res, 403, { error: 'origin not allowed' })
       const ip = clientIp(req)
       if (!allowPublicRequest('event', ip, 120, 15 * 60 * 1000)) return json(res, 429, { error: 'too many event requests' })
@@ -318,6 +329,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'PATCH' && url.pathname.startsWith('/api/leads/')) {
+      if (!requireJson(req)) return json(res, 415, { error: 'content-type must be application/json' })
       if (!requestFromAllowedOrigin(req)) return json(res, 403, { error: 'origin not allowed' })
       const session = await requireAdmin(req)
       if (!session) return json(res, 401, { error: 'unauthorized' })
@@ -346,3 +358,14 @@ ensureSchema()
     console.error('Database schema initialization failed', error)
     process.exit(1)
   })
+
+async function shutdown(signal) {
+  console.log('Received ' + signal + ', shutting down')
+  server.close(async () => {
+    await pool.end()
+    process.exit(0)
+  })
+  setTimeout(() => process.exit(1), 10000).unref()
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))
