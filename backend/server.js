@@ -88,7 +88,7 @@ function assertRuntimeConfig() {
   if (NODE_ENV === 'production' && SESSION_SAMESITE === 'none' && !ORIGIN.startsWith('https://')) {
     throw new Error('SameSite=None requires an HTTPS origin')
   }
-  if (!ADMIN_PASSWORD_HASH) throw new Error('ADMIN_PASSWORD_HASH must be configured')
+  if (NODE_ENV === 'production' && !ADMIN_PASSWORD_HASH) throw new Error('ADMIN_PASSWORD_HASH must be configured')
 }
 function pruneRateLimitMap(map, now) {
   for (const [key, item] of map) {
