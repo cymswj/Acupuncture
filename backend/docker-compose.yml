@@ -5,9 +5,19 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-sanya}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-sanya_tcm}
+      PGHOST: db
+      PGPORT: 5432
+      PGDATABASE: ${POSTGRES_DB:-sanya_tcm}
+      PGUSER: ${POSTGRES_USER:-sanya}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "127.0.0.1:8787:8787"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     depends_on:
       db:
         condition: service_healthy
