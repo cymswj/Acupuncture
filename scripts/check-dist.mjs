@@ -26,7 +26,7 @@ if (config.contact?.telegramQrPath !== '/Acupuncture/telegram-qr.svg') throw new
 const home = fs.readFileSync('dist/index.html', 'utf8')
 if (!home.includes('/assets/')) throw new Error('Home build missing compiled asset reference')
 const assetDir = 'dist/assets'
-const bundles = fs.readdirSync(assetDir).filter(name => /\\.(?:js|mjs)$/.test(name)).map(name => fs.readFileSync(assetDir + '/' + name, 'utf8')).join('\n')
+const bundles = fs.readdirSync(assetDir).filter(name => /\.(?:js|mjs)$/.test(name)).map(name => fs.readFileSync(assetDir + '/' + name, 'utf8')).join('\n')
 if (!bundles.includes('contact_opened') || !bundles.includes('Telegram')) throw new Error('Compiled frontend contact bundle is missing')
 if (!bundles.includes('contact_opened')) throw new Error('Compiled frontend contact tracking is missing')
 
