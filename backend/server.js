@@ -7,7 +7,6 @@ const { Pool } = pg
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 10, idleTimeoutMillis: 30000, connectionTimeoutMillis: 5000 })
 pool.on('error', error => console.error('Unexpected PostgreSQL pool error', error))
 const PORT = Number(process.env.PORT || 8787)
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN || ''
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin'
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || ''
 const SESSION_TTL_HOURS = Math.max(1, Math.min(168, Number(process.env.SESSION_TTL_HOURS || 12)))
@@ -23,7 +22,7 @@ function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', ORIGIN)
   res.setHeader('Access-Control-Allow-Credentials', 'true')
   res.setHeader('Vary', 'Origin')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Admin-Token')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,OPTIONS')
   res.setHeader('Access-Control-Max-Age', '600')
 }
@@ -177,21 +176,16 @@ async function createSession(username) {
 async function getSession(req) {
   const cookies = parseCookies(req)
   const cookieToken = cookies[SESSION_COOKIE] || ''
-  const auth = String(req.headers.authorization || '')
-  const bearer = auth.startsWith('Bearer ') ? auth.slice(7).trim() : cookieToken
-  const legacy = String(req.headers['x-admin-token'] || '')
-  if (legacy && ADMIN_TOKEN && legacy === ADMIN_TOKEN) {
-    return { username: ADMIN_USERNAME, legacy: true }
-  }
-  if (!bearer) return null
+  if (!cookieToken) return null
+  const sessionHash = tokenHash(cookieToken)
   const result = await pool.query(
     'SELECT username, expires_at FROM admin_sessions WHERE token_hash=$1 AND expires_at > NOW()',
-    [tokenHash(bearer)]
+    [sessionHash]
   )
   const row = result.rows[0]
   if (!row) return null
-  await pool.query('UPDATE admin_sessions SET last_seen_at=NOW() WHERE token_hash=$1', [tokenHash(bearer)])
-  return { username: row.username, legacy: false, tokenHash: tokenHash(bearer) }
+  await pool.query('UPDATE admin_sessions SET last_seen_at=NOW() WHERE token_hash=$1', [sessionHash])
+  return { username: row.username, tokenHash: sessionHash }
 }
 async function requireAdmin(req) {
   const session = await getSession(req)
@@ -259,6 +253,8 @@ function cleanEmail(value) {
 function cleanPhone(value) {
   return String(value || '').trim().slice(0, 40)
 }
+let publicSettingsCache = { settings: null, expiresAt: 0, updatedAt: null }
+
 function cleanPublicSettings(input = {}) {
   const source = input && typeof input === 'object' ? input : {}
   const brand = source.brand && typeof source.brand === 'object' ? source.brand : {}
@@ -361,8 +357,14 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && url.pathname === '/api/public-settings') {
+      if (publicSettingsCache.settings && Date.now() < publicSettingsCache.expiresAt) {
+        return json(res, 200, { settings: publicSettingsCache.settings, updatedAt: publicSettingsCache.updatedAt })
+      }
       const result = await pool.query('SELECT settings,updated_at FROM site_settings WHERE id=TRUE')
-      return json(res, 200, { settings: result.rows[0]?.settings || {}, updatedAt: result.rows[0]?.updated_at || null })
+      const settings = result.rows[0]?.settings || {}
+      const updatedAt = result.rows[0]?.updated_at || null
+      publicSettingsCache = { settings, updatedAt, expiresAt: Date.now() + 15000 }
+      return json(res, 200, { settings, updatedAt })
     }
 
     if (req.method === 'GET' && url.pathname === '/api/settings') {
@@ -382,12 +384,27 @@ const server = http.createServer(async (req, res) => {
       const session = await requireAdmin(req)
       if (!session) return json(res, 401, { error: 'unauthorized' })
       const settings = cleanPublicSettings(await readBody(req))
-      await pool.query(
-        'INSERT INTO site_settings(id,settings,updated_at,updated_by) VALUES(TRUE,$1,NOW(),$2) ON CONFLICT(id) DO UPDATE SET settings=$1,updated_at=NOW(),updated_by=$2',
-        [settings, session.username]
-      )
-      await audit(session.username, 'settings_update', null, req, { sections: ['brand','contact','hospital','seo'] })
-      const updatedAt = new Date().toISOString()
+      const client = await pool.connect()
+      let updatedAt
+      try {
+        await client.query('BEGIN')
+        const result = await client.query(
+          'INSERT INTO site_settings(id,settings,updated_at,updated_by) VALUES(TRUE,$1,NOW(),$2) ON CONFLICT(id) DO UPDATE SET settings=$1,updated_at=NOW(),updated_by=$2 RETURNING updated_at',
+          [settings, session.username]
+        )
+        updatedAt = result.rows[0]?.updated_at || new Date()
+        await client.query(
+          'INSERT INTO audit_logs(username,action,target_id,ip,metadata) VALUES($1,$2,$3,$4,$5)',
+          [session.username, 'settings_update', null, clientIp(req), { sections: ['brand','contact','hospital','seo'] }]
+        )
+        await client.query('COMMIT')
+      } catch (error) {
+        try { await client.query('ROLLBACK') } catch {}
+        throw error
+      } finally {
+        client.release()
+      }
+      publicSettingsCache = { settings, updatedAt, expiresAt: Date.now() + 15000 }
       return json(res, 200, { ok: true, settings, updatedAt, updatedBy: session.username })
     }
 
@@ -437,6 +454,7 @@ const server = http.createServer(async (req, res) => {
       if (!session) return json(res, 401, { error: 'unauthorized' })
       const { limit, offset } = parsePagination(url, 100, 500)
       const stageFilter = String(url.searchParams.get('stage') || '').trim()
+      if (stageFilter && !stages.has(stageFilter)) return json(res, 400, { error: 'invalid stage filter' })
       const sourceFilter = String(url.searchParams.get('source') || '').trim().slice(0, 80)
       const queryFilter = String(url.searchParams.get('q') || '').trim().slice(0, 120)
       const where = []
@@ -542,6 +560,10 @@ const server = http.createServer(async (req, res) => {
             )
           }
         }
+        await client.query(
+          'INSERT INTO audit_logs(username,action,target_id,ip,metadata) VALUES($1,$2,$3,$4,$5)',
+          [session.username, 'lead_update', id, clientIp(req), { previousStage, stage, appointmentDate, visitDate, followupDate, valueCny, owner: owner || null }]
+        )
         await client.query('COMMIT')
       } catch (error) {
         try { await client.query('ROLLBACK') } catch {}
@@ -549,8 +571,6 @@ const server = http.createServer(async (req, res) => {
       } finally {
         client.release()
       }
-
-      await audit(session.username, 'lead_update', id, req, { previousStage, stage, appointmentDate, visitDate, followupDate, valueCny, owner: owner || null })
       return json(res, 200, { ok: true, id, previousStage, stage })
     }
 
