@@ -88,9 +88,8 @@ if (!backend.includes("allowPublicRequest('public-settings'")) throw new Error('
 if (!backend.includes("['lead_created', 'appointment_requested']")) throw new Error('Lead creation must record initial funnel events transactionally')
 if (!source.includes('if (!remoteLead)')) throw new Error('Frontend must avoid duplicate remote lead funnel events')
 if (!source.includes('activeDoctors')) throw new Error('Frontend must support multiple verified doctors')
-if (!fs.readFileSync('public/telegram-qr.svg','utf8').includes('Acupuncture_Sanya')) {
-  // QR payload is encoded in the generated module matrix rather than as text; only assert a substantial SVG asset here.
-}
+const qrSvg = fs.readFileSync('public/telegram-qr.svg','utf8')
+if (qrSvg.length < 2000 || !qrSvg.includes('<svg') || !qrSvg.includes('viewBox')) throw new Error('Telegram QR asset looks incomplete')
 
 if (!backend.includes("url.pathname === '/api/audit'")) throw new Error('Audit endpoint is missing')
 if (!backend.includes("url.pathname === '/api/public-settings'")) throw new Error('Public settings endpoint is missing')
