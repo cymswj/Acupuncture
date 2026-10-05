@@ -43,7 +43,7 @@ if (!String(packageJson.scripts?.build || '').includes('npm run sync-config')) t
 const config = JSON.parse(fs.readFileSync('config/site.json','utf8'))
 if (!config.seo?.siteUrl?.startsWith('https://')) throw new Error('seo.siteUrl must be HTTPS')
 if (!config.hospital?.website?.startsWith('https://')) throw new Error('hospital.website must be HTTPS')
-if (typeof config.contact?.phone !== 'string' || config.contact.phone.trim() && !/^\+?[\d ()-]{7,40}$/.test(config.contact.phone.trim())) throw new Error('service phone format is invalid')
+if (typeof config.contact?.phone !== 'string' || config.contact.phone.trim() && (!/^\+?[\d ()-]{7,40}$/.test(config.contact.phone.trim()) || !/\d/.test(config.contact.phone.trim()))) throw new Error('service phone format is invalid')
 if (config.contact?.telegramUrl && !config.contact.telegramUrl.startsWith('https://')) throw new Error('Telegram URL must be HTTPS')
 if (config.contact?.telegramQrPath !== '/Acupuncture/telegram-qr.svg') throw new Error('Telegram QR asset path is not configured')
 if (!Array.isArray(config.funnel?.stages) || !config.funnel.stages.includes('appointment_requested')) throw new Error('funnel stages are incomplete')
@@ -128,5 +128,13 @@ const doctorPage = fs.readFileSync('public/ru/doctors/index.html','utf8')
 if (doctorPage.includes('刘建浩') || doctorPage.includes('徐琼') || doctorPage.includes('黄建福') || doctorPage.includes('王天磊') || doctorPage.includes('王波')) throw new Error('Doctor SEO page contains disabled/unverified named doctors')
 if (admin.includes('sessionStorage') || admin.includes('localStorage')) throw new Error('Admin must not store authentication state in browser storage')
 if (backend.includes("ADMIN_PASSWORD = process.env")) throw new Error('Do not support plaintext admin passwords')
+
+
+if (!source.includes('import.meta.env.BASE_URL')) throw new Error('Frontend internal URLs should use Vite base URL')
+if (source.includes("saveLead(lead)")) throw new Error('Real visitor leads must not be persisted in browser CRM')
+if (!backend.includes('promisify(crypto.scrypt)')) throw new Error('Password verification should not block the event loop')
+if (!backend.includes('salt.length !== 16') || !backend.includes('expected.length !== 64')) throw new Error('scrypt hash parameters must be bounded')
+if (!backend.includes('USER node')) throw new Error('API container must run as non-root')
+if (!fs.readFileSync('.github/workflows/deploy.yml','utf8').includes('actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1')) throw new Error('GitHub Actions should pin checkout to a commit SHA')
 
 console.log('Repository checks passed')
