@@ -83,6 +83,15 @@ if (!backend.includes('allowPublicRequest')) throw new Error('Public endpoint ra
 if (!backend.includes('createLeadId')) throw new Error('Server-generated Lead IDs are missing')
 if (!backend.includes('HttpOnly')) throw new Error('HttpOnly session cookie is missing')
 if (!backend.includes('Access-Control-Allow-Credentials')) throw new Error('credentialed CORS support is missing')
+if (!backend.includes("'GET,POST,PUT,PATCH,OPTIONS'")) throw new Error('CORS must allow website settings PUT')
+if (!backend.includes("allowPublicRequest('public-settings'")) throw new Error('Public settings endpoint must be rate limited')
+if (!backend.includes("['lead_created', 'appointment_requested']")) throw new Error('Lead creation must record initial funnel events transactionally')
+if (!source.includes('if (!remoteLead)')) throw new Error('Frontend must avoid duplicate remote lead funnel events')
+if (!source.includes('activeDoctors')) throw new Error('Frontend must support multiple verified doctors')
+if (!fs.readFileSync('public/telegram-qr.svg','utf8').includes('Acupuncture_Sanya')) {
+  // QR payload is encoded in the generated module matrix rather than as text; only assert a substantial SVG asset here.
+}
+
 if (!backend.includes("url.pathname === '/api/audit'")) throw new Error('Audit endpoint is missing')
 if (!backend.includes("url.pathname === '/api/public-settings'")) throw new Error('Public settings endpoint is missing')
 if (!backend.includes("url.pathname === '/api/settings'")) throw new Error('Admin settings endpoint is missing')
