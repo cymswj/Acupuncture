@@ -245,6 +245,8 @@ function App() {
   function moveLocal(id, next) {
     updateLead(id, { stage: next })
     trackEvent('lead_stage_changed', { stage: next })
+    const eventByStage = { confirmed: 'appointment_confirmed', visited: 'visit_completed', followup: 'followup_completed' }
+    if (eventByStage[next]) trackEvent(eventByStage[next], { leadStage: next })
     setLeads(listLeads())
   }
 
