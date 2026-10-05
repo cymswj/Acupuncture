@@ -468,10 +468,22 @@ const server = http.createServer(async (req, res) => {
       const lead = cleanLead(await readBody(req))
       if (!lead.name || !lead.contact || !lead.service) return json(res, 400, { error: 'name, contact and service are required' })
       const id = createLeadId()
-      await pool.query(
-        'INSERT INTO leads (id,stage,source,medium,campaign,language,name,contact,preferred_date,service) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
-        [id,'appointment_requested',lead.source,lead.medium,lead.campaign,lead.language,lead.name,lead.contact,lead.preferredDate,lead.service]
-      )
+      const client = await pool.connect()
+      try {
+        await client.query('BEGIN')
+        await client.query(
+          'INSERT INTO leads (id,stage,source,medium,campaign,language,name,contact,preferred_date,service) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
+          [id,'appointment_requested',lead.source,lead.medium,lead.campaign,lead.language,lead.name,lead.contact,lead.preferredDate,lead.service]
+        )
+        await client.query('INSERT INTO funnel_events(event_name,path,language,source,medium,campaign) VALUES($1,$2,$3,$4,$5,$6)', ['lead_created','/api/leads',lead.language,lead.source,lead.medium,lead.campaign])
+        await client.query('INSERT INTO funnel_events(event_name,path,language,source,medium,campaign) VALUES($1,$2,$3,$4,$5,$6)', ['appointment_requested','/api/leads',lead.language,lead.source,lead.medium,lead.campaign])
+        await client.query('COMMIT')
+      } catch (error) {
+        try { await client.query('ROLLBACK') } catch {}
+        throw error
+      } finally {
+        client.release()
+      }
       return json(res, 201, { ok: true, id, stage: 'appointment_requested' })
     }
 
