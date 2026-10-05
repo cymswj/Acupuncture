@@ -24,7 +24,7 @@ function cors(res) {
   res.setHeader('Access-Control-Allow-Credentials', 'true')
   res.setHeader('Vary', 'Origin')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Admin-Token')
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,OPTIONS')
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,OPTIONS')
   res.setHeader('Access-Control-Max-Age', '600')
 }
 function securityHeaders(res) {
