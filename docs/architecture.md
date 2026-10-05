@@ -214,6 +214,8 @@ C. 后端：
 - Appointment status
 - Staff permissions
 - Audit logs
+- Audit log query UI
+- Leads pagination / filtering API
 
 D. 平台化：
 - 多医院
