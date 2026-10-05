@@ -1,5 +1,32 @@
 const STORAGE_KEY = 'sanya_tcm_events_v1'
 
+export const FUNNEL_EVENTS = [
+  'page_view',
+  'resource_view',
+  'cta_click',
+  'form_start',
+  'lead_created',
+  'contact_opened',
+  'appointment_requested',
+  'appointment_confirmed',
+  'visit_completed',
+  'followup_due',
+  'followup_completed',
+  'lead_stage_changed',
+]
+
+const SAFE_PROPERTY_KEYS = new Set([
+  'placement',
+  'channel',
+  'form',
+  'stage',
+  'leadStage',
+  'language',
+  'source',
+  'medium',
+  'campaign',
+])
+
 function getStoredEvents() {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
@@ -9,23 +36,24 @@ function getStoredEvents() {
 }
 
 function sanitizeProperties(properties = {}) {
-  const safe = { ...properties }
-  for (const key of ['note','message','diagnosis','medicalRecords','patientName','phone','telegram','contact','email','address','ip','userId']) {
-    delete safe[key]
-  }
-  return safe
+  const input = properties && typeof properties === 'object' ? properties : {}
+  return Object.fromEntries(
+    Object.entries(input)
+      .filter(([key]) => SAFE_PROPERTY_KEYS.has(key))
+      .map(([key, value]) => [key, String(value ?? '').slice(0, 160)])
+  )
 }
 
 function sendRemoteEvent(name, safe, options = {}) {
   const remoteUrl = String(options.remoteUrl || '')
-  if (!remoteUrl) return
+  if (!remoteUrl || !FUNNEL_EVENTS.includes(name)) return
   const payload = {
     eventName: name,
-    path: safe.path,
-    language: safe.language,
-    source: safe.source,
-    medium: safe.medium,
-    campaign: safe.campaign,
+    path: String(safe.path || '').slice(0, 200),
+    language: String(safe.language || 'ru').slice(0, 16),
+    source: String(safe.source || '').slice(0, 80),
+    medium: String(safe.medium || '').slice(0, 80),
+    campaign: String(safe.campaign || '').slice(0, 120),
   }
   fetch(remoteUrl, {
     method: options.method || 'POST',
@@ -36,6 +64,7 @@ function sendRemoteEvent(name, safe, options = {}) {
 }
 
 export function trackEvent(name, properties = {}, options = {}) {
+  if (!FUNNEL_EVENTS.includes(name)) return null
   const safe = {
     name,
     timestamp: new Date().toISOString(),
@@ -61,17 +90,3 @@ export function readEvents() {
 export function clearEvents() {
   try { localStorage.removeItem(STORAGE_KEY) } catch {}
 }
-
-export const FUNNEL_EVENTS = [
-  'page_view',
-  'resource_view',
-  'cta_click',
-  'form_start',
-  'lead_created',
-  'contact_opened',
-  'appointment_requested',
-  'appointment_confirmed',
-  'visit_completed',
-  'followup_due',
-  'followup_completed',
-]
