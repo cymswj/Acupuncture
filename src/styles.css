@@ -31,10 +31,9 @@
 .settingsGroup label{margin-bottom:13px}
 .settingsGroup input,.settingsGroup textarea{background:#fff;border-radius:5px}
 .settingsWide{grid-column:1 / -1}
-.settingsTwo{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.settingsTwo{display:grid;grid-template-columns:1fr 1fr;gap:16px}.settingsThree{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.settingsThree h4{margin:0 0 12px;font-size:12px;color:#5c695f}
 .settingsHint,.settingsWarning{font-size:11px;line-height:1.65;margin:12px 0 0;color:#758078}
 .settingsWarning{color:#805d35}
 .settingsBar{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-top:14px;padding-top:14px;border-top:1px solid #dde2da;color:#758078;font-size:11px}
-@media(max-width:900px){.settingsGrid{grid-template-columns:1fr}.settingsWide{grid-column:auto}.settingsTwo{grid-template-columns:1fr}}
+@media(max-width:900px){.settingsGrid{grid-template-columns:1fr}.settingsWide{grid-column:auto}.settingsTwo,.settingsThree{grid-template-columns:1fr}}
 @media(max-width:650px){.settingsPanel>summary{align-items:flex-start;flex-direction:column}.settingsBar{align-items:flex-start;flex-direction:column}}
-
