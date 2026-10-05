@@ -55,14 +55,18 @@ GET /health
 
 服务器环境变量：
 
-    DATABASE_URL=postgresql://...
+    PGHOST=db-or-host
+    PGPORT=5432
+    PGDATABASE=sanya_tcm
+    PGUSER=sanya
+    PGPASSWORD=...
     ADMIN_USERNAME=admin
     ADMIN_PASSWORD_HASH=scrypt$...
     SESSION_TTL_HOURS=12
-    SESSION_SAMESITE=lax
+    SESSION_SAMESITE=none
     CORS_ORIGIN=https://cymswj.github.io
 
-旧版 ADMIN_TOKEN 仅用于过渡兼容；正式环境建议留空，让后台全部使用登录 session。Session 现在通过 HttpOnly + Secure Cookie 交换。若前台和 API 位于不同站点，需要将 `SESSION_SAMESITE` 设置为 `none`，同时保持 HTTPS；API 仍通过严格 Origin 校验防止跨站状态修改。
+后台只使用 HttpOnly + Secure Cookie Session，不再接受 Authorization / X-Admin-Token 作为管理员凭据。若前台和 API 位于不同站点，需要 `SESSION_SAMESITE=none` 并保持 HTTPS；长期更推荐同站点自定义域名架构。若前台和 API 位于不同站点，需要将 `SESSION_SAMESITE` 设置为 `none`，同时保持 HTTPS；API 仍通过严格 Origin 校验防止跨站状态修改。
 
 ## Docker / VPS
 
@@ -127,17 +131,7 @@ Docker Compose 会：
 
 之后 /admin/ 会显示正式登录页，登录后从 PostgreSQL 获取共享 Lead 和漏斗统计。
 
-同时把前台：
-
-    leadsApi.enabled = true
-    leadsApi.url = "https://api.example.com/api/leads"
-
-以及：
-
-    analyticsApi.enabled = true
-    analyticsApi.url = "https://api.example.com/api/events"
-
-这样网站表单和漏斗数据才会真正进入共享后端。
+前台只需要启用 `adminApi` 并填写 API 根地址时，Lead 和漏斗事件会自动回退到 `/api/leads` 与 `/api/events`；仍可用 `leadsApi` / `analyticsApi` 做显式覆盖。这样可以减少前后端配置漂移。
 
 ## 数据边界
 
