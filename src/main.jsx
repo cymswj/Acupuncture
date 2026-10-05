@@ -12,7 +12,11 @@ const fallbackConfig = {
     telegramShareUrl: '',
     vkUrl: '',
     whatsappUrl: '',
-    email: ''
+    email: '',
+    phone: '+86 13876636537',
+    phoneUrl: 'tel:+8613876636537',
+    phoneLabel: 'Русскоязычная связь / 联系电话',
+    telegramQrPath: '/Acupuncture/telegram-qr.jpg'
   },
   hospital: {
     officialName: '三亚市中医院',
@@ -278,6 +282,10 @@ function App() {
   const telegramUrl = config.contact?.telegramUrl || ''
   const telegramHandle = config.contact?.telegramHandle || ''
   const telegramShareUrl = config.contact?.telegramShareUrl || ''
+  const contactPhone = config.contact?.phone || ''
+  const contactPhoneUrl = config.contact?.phoneUrl || ''
+  const contactPhoneLabel = config.contact?.phoneLabel || '联系'
+  const telegramQrPath = config.contact?.telegramQrPath || ''
   const analyticsRemoteUrl = config.analyticsApi?.enabled && config.analyticsApi.url ? config.analyticsApi.url : ''
   const analyticsRemoteMethod = config.analyticsApi?.method || 'POST'
   const recordEvent = (name, properties = {}) => trackEvent(name, properties, { remoteUrl: analyticsRemoteUrl, method: analyticsRemoteMethod })
@@ -400,7 +408,7 @@ function App() {
       <section className="section" id="about"><div className="container"><div className="sectionHead"><span>01</span><h2>{t.introTitle}</h2><p>{t.introText}</p></div><div className="cards">{t.cards.map(c=><article key={c[0]}><span>{c[0]}</span><h3>{c[1]}</h3><p>{c[2]}</p></article>)}</div></div></section>
 
       <section className="section soft" id="hospital"><div className="container split">
-        <div><div className="kicker">02 · HOSPITAL</div><h2>{t.hospitalTitle}</h2><p>{t.hospitalText}</p><div className="hospitalMeta"><strong>{hospital.officialName}</strong><span>{hospital.address}</span><span>{hospital.phone}</span><a href={hospital.website} target="_blank" rel="noopener noreferrer">{t.official} ↗</a><div className="sourceLinks"><a href="https://ws.sanya.gov.cn/wjwsite/ttxw/202607/8a75783eac224a9f8833dc34bf7fda42.shtml" target="_blank" rel="noopener noreferrer">三亚卫健委 · 国际医疗报道 ↗</a><a href="https://app.xinhuanet.com/news/article.html?articleId=20260831853e79fd100f473b948ddb9538e80c78" target="_blank" rel="noopener noreferrer">新华社 · 中医国际服务报道 ↗</a></div></div></div>
+        <div><div className="kicker">02 · HOSPITAL</div><h2>{t.hospitalTitle}</h2><p>{t.hospitalText}</p><div className="hospitalMeta"><strong>{hospital.officialName}</strong><span>{hospital.address}</span>{contactPhone ? <span><b>{contactPhoneLabel}：</b><a href={contactPhoneUrl || ('tel:' + contactPhone.replace(/[^\d+]/g, ''))}>{contactPhone}</a></span> : null}<a href={hospital.website} target="_blank" rel="noopener noreferrer">{t.official} ↗</a><div className="sourceLinks"><a href="https://ws.sanya.gov.cn/wjwsite/ttxw/202607/8a75783eac224a9f8833dc34bf7fda42.shtml" target="_blank" rel="noopener noreferrer">三亚卫健委 · 国际医疗报道 ↗</a><a href="https://app.xinhuanet.com/news/article.html?articleId=20260831853e79fd100f473b948ddb9538e80c78" target="_blank" rel="noopener noreferrer">新华社 · 中医国际服务报道 ↗</a></div></div></div>
         <ul>{t.hospitalPoints.map(x=><li key={x}>✓ <span>{x}</span></li>)}</ul>
       </div></section>
 
@@ -414,7 +422,7 @@ function App() {
 
       {lang === 'ru' ? <section className="section soft" id="resources"><div className="container"><div className="kicker">07 · РУССКИЕ РЕСУРСЫ</div><div className="resourceGrid">{seoLinks.map(([href,label])=><a className="resourceCard" key={href} href={href}><span>{label}</span><strong>→</strong></a>)}</div></div></section> : null}
 
-      <section className="cta" id="request"><div className="container ctaInner"><div><div className="kicker">CONTACT</div><h2>{t.ctaTitle}</h2><p>{t.ctaText}</p></div><div className="ctaContact">{telegramUrl ? <a className="btn primary" onClick={()=>recordEvent('contact_opened',{channel:'telegram',placement:'cta'})} href={telegramUrl} target="_blank" rel="noreferrer">{telegramHandle ? `Telegram ${telegramHandle}` : 'Telegram'} →</a> : <span className="configBadge">{t.formNoTelegram}</span>}</div></div>
+      <section className="cta" id="request"><div className="container ctaInner"><div><div className="kicker">CONTACT</div><h2>{t.ctaTitle}</h2><p>{t.ctaText}</p></div><div className="ctaContact contactPanel">{contactPhone ? <a className="contactPhone" onClick={()=>recordEvent('contact_opened',{channel:'phone',placement:'cta'})} href={contactPhoneUrl || ('tel:' + contactPhone.replace(/[^\d+]/g, ''))}>{contactPhone}</a> : null}{telegramUrl ? <a className="btn primary" onClick={()=>recordEvent('contact_opened',{channel:'telegram',placement:'cta'})} href={telegramUrl} target="_blank" rel="noreferrer">{telegramHandle ? `Telegram ${telegramHandle}` : 'Telegram'} →</a> : null}{!telegramUrl && !telegramQrPath ? <span className="configBadge">{t.formNoTelegram}</span> : null}{telegramQrPath ? <figure className="telegramQr"><img src={telegramQrPath} alt="Telegram QR code" loading="lazy" /><figcaption>Telegram</figcaption></figure> : null}</div></div>
         <div className="container requestBox"><form onSubmit={submitForm} onFocus={()=>{ if (!formStarted.current) { formStarted.current = true; recordEvent('form_start',{form:'visit_request'}) } }}><h3>{t.formTitle}</h3><div className="formGrid"><label><span>{t.formName}</span><input required value={form.name} onChange={e=>setForm({...form,name:e.target.value})} autoComplete="name" /></label><label><span>{t.formContact}</span><input required value={form.contact} onChange={e=>setForm({...form,contact:e.target.value})} autoComplete="tel" /></label><label><span>{t.formDate}</span><input type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})} /></label><label><span>{t.formService}</span><select value={form.service} onChange={e=>setForm({...form,service:e.target.value})}>{t.formServiceOptions.map(x=><option key={x}>{x}</option>)}</select></label></div><label><span>{t.formNote}</span><textarea rows="3" value={form.note} onChange={e=>setForm({...form,note:e.target.value})} placeholder="Не указывайте диагнозы и не прикрепляйте медицинские документы." /></label><label className="check"><input type="checkbox" required /> <span>{t.formConsent}</span></label><button className="btn primary" type="submit">{t.formSubmit}</button>{formMessage ? <p className="formMessage">{formMessage}</p> : null}{preparedMessage ? <div className="preparedMessage"><pre>{preparedMessage}</pre><button type="button" className="btn ghost" onClick={()=>navigator.clipboard?.writeText(preparedMessage)}>{lang==='ru'?'Копировать сообщение':lang==='zh'?'复制消息':'Copy message'}</button></div> : null}</form></div>
       </section>
     </main>
