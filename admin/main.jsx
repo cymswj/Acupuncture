@@ -249,11 +249,12 @@ function App() {
   }, [remoteMode])
 
   useEffect(() => {
-    if (remoteMode && authChecked && authenticated) {
-      refreshRemote()
-      loadRemoteSettings()
-    }
+    if (remoteMode && authChecked && authenticated) refreshRemote()
   }, [remoteMode, authChecked, authenticated, remotePage, stage, leadSearch])
+
+  useEffect(() => {
+    if (remoteMode && authChecked && authenticated) loadRemoteSettings()
+  }, [remoteMode, authChecked, authenticated])
 
   const localStats = useMemo(() => {
     const sources = {}
