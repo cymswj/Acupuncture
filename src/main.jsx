@@ -415,6 +415,7 @@ function App() {
     }
     const leadApiUrl = config.leadsApi?.enabled && config.leadsApi.url ? config.leadsApi.url : (backendBaseUrl ? backendBaseUrl + '/api/leads' : '')
     const remoteLead = Boolean(leadApiUrl)
+    const backendOwnsLeadEvents = Boolean(backendBaseUrl && leadApiUrl === backendBaseUrl + '/api/leads')
     let savedLeadId = lead.id
 
     try {
@@ -428,16 +429,25 @@ function App() {
         try { body = await response.json() } catch {}
         if (!response.ok) throw new Error(body?.error || 'lead API request failed')
         savedLeadId = body?.id || savedLeadId
+        if (!backendOwnsLeadEvents) {
+          recordEvent('appointment_requested', {
+            source: lead.source,
+            language: lead.language,
+            service: lead.service,
+          })
+          recordEvent('lead_created', {
+            source: lead.source,
+            language: lead.language,
+            service: lead.service,
+          })
+        }
       } else {
         recordEvent('appointment_requested', {
-
-          leadId: savedLeadId,
           source: lead.source,
           language: lead.language,
           service: lead.service,
         })
         recordEvent('lead_created', {
-          leadId: savedLeadId,
           source: lead.source,
           language: lead.language,
           service: lead.service,
@@ -496,7 +506,7 @@ function App() {
       {lang === 'ru' ? <section className="section soft" id="resources"><div className="container"><div className="kicker">07 · РУССКИЕ РЕСУРСЫ</div><div className="resourceGrid">{seoLinks.map(([href,label])=><a className="resourceCard" key={href} href={href}><span>{label}</span><strong>→</strong></a>)}</div></div></section> : null}
 
       <section className="cta" id="request"><div className="container ctaInner"><div><div className="kicker">CONTACT</div><h2>{t.ctaTitle}</h2><p>{t.ctaText}</p></div><div className="ctaContact contactPanel">{contactPhone ? <a className="contactPhone" onClick={()=>recordEvent('contact_opened',{channel:'phone',placement:'cta'})} href={contactPhoneUrl || ('tel:' + contactPhone.replace(/[^\d+]/g, ''))}>{contactPhone}</a> : null}{telegramUrl ? <a className="btn primary" onClick={()=>recordEvent('contact_opened',{channel:'telegram',placement:'cta'})} href={telegramUrl} target="_blank" rel="noreferrer">{telegramHandle ? `Telegram ${telegramHandle}` : 'Telegram'} →</a> : null}{!telegramUrl && !telegramQrPath ? <span className="configBadge">{t.formNoTelegram}</span> : null}{telegramUrl && telegramQrPath ? <a className="telegramQrLink" href={telegramUrl} onClick={()=>recordEvent('contact_opened',{channel:'telegram_qr',placement:'cta'})} target="_blank" rel="noreferrer"><figure className="telegramQr"><img src={telegramQrPath} alt="Telegram QR code" loading="lazy" /><figcaption>Telegram</figcaption></figure></a> : null}</div></div>
-        <div className="container requestBox"><form onSubmit={submitForm} onFocus={()=>{ if (!formStarted.current) { formStarted.current = true; recordEvent('form_start',{form:'visit_request'}) } }}><h3>{t.formTitle}</h3><div className="formGrid"><label><span>{t.formName}</span><input required value={form.name} onChange={e=>setForm({...form,name:e.target.value})} autoComplete="name" /></label><label><span>{t.formContact}</span><input required value={form.contact} onChange={e=>setForm({...form,contact:e.target.value})} autoComplete="tel" /></label><label><span>{t.formDate}</span><input type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})} /></label><label><span>{t.formService}</span><select value={form.service} onChange={e=>setForm({...form,service:e.target.value})}>{t.formServiceOptions.map(x=><option key={x}>{x}</option>)}</select></label></div><label><span>{t.formNote}</span><textarea rows="3" value={form.note} onChange={e=>setForm({...form,note:e.target.value})} placeholder={t.formNotePlaceholder} /></label><label className="check"><input type="checkbox" required /> <span>{t.formConsent}</span></label><button className="btn primary" type="submit" disabled={formSubmitting}>{formSubmitting ? (lang==='ru'?'Отправка…':lang==='zh'?'提交中…':'Sending…') : t.formSubmit}</button>{formMessage ? <p className="formMessage">{formMessage}</p> : null}{preparedMessage ? <div className="preparedMessage"><pre>{preparedMessage}</pre><button type="button" className="btn ghost" onClick={()=>navigator.clipboard?.writeText(preparedMessage)}>{lang==='ru'?'Копировать сообщение':lang==='zh'?'复制消息':'Copy message'}</button></div> : null}</form></div>
+        <div className="container requestBox"><form onSubmit={submitForm} onFocus={()=>{ if (!formStarted.current) { formStarted.current = true; recordEvent('form_start',{form:'visit_request'}) } }}><h3>{t.formTitle}</h3><div className="formGrid"><label><span>{t.formName}</span><input required value={form.name} onChange={e=>setForm({...form,name:e.target.value})} autoComplete="name" /></label><label><span>{t.formContact}</span><input required value={form.contact} onChange={e=>setForm({...form,contact:e.target.value})} autoComplete="tel" /></label><label><span>{t.formDate}</span><input type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})} /></label><label><span>{t.formService}</span><select value={form.service} onChange={e=>setForm({...form,service:e.target.value})}>{t.formServiceOptions.map(x=><option key={x}>{x}</option>)}</select></label></div><label><span>{t.formNote}</span><textarea rows="3" maxLength="300" value={form.note} onChange={e=>setForm({...form,note:e.target.value})} placeholder={t.formNotePlaceholder} /></label><label className="check"><input type="checkbox" required /> <span>{t.formConsent}</span></label><button className="btn primary" type="submit" disabled={formSubmitting}>{formSubmitting ? (lang==='ru'?'Отправка…':lang==='zh'?'提交中…':'Sending…') : t.formSubmit}</button>{formMessage ? <p className="formMessage">{formMessage}</p> : null}{preparedMessage ? <div className="preparedMessage"><pre>{preparedMessage}</pre><button type="button" className="btn ghost" onClick={()=>navigator.clipboard?.writeText(preparedMessage)}>{lang==='ru'?'Копировать сообщение':lang==='zh'?'复制消息':'Copy message'}</button></div> : null}</form></div>
       </section>
     </main>
 
@@ -519,6 +529,9 @@ function App() {
           <h2 id="footer-contact-title">{t.footerContactTitle}</h2>
           {contactPhone ? <a className="footerPhone" onClick={()=>recordEvent('contact_opened',{channel:'phone',placement:'footer'})} href={contactPhoneUrl || ('tel:' + contactPhone.replace(/[^\d+]/g, ''))}><span>{t.contactPhoneLabel}</span>{contactPhone}</a> : null}
           {telegramUrl ? <a className="footerTelegram" onClick={()=>recordEvent('contact_opened',{channel:'telegram',placement:'footer'})} href={telegramUrl} target="_blank" rel="noreferrer">{telegramHandle || 'Telegram'} ↗</a> : null}
+          {config.contact?.vkUrl ? <a className="footerSocial" onClick={()=>recordEvent('contact_opened',{channel:'vk',placement:'footer'})} href={config.contact.vkUrl} target="_blank" rel="noreferrer">VK ↗</a> : null}
+          {config.contact?.whatsappUrl ? <a className="footerSocial" onClick={()=>recordEvent('contact_opened',{channel:'whatsapp',placement:'footer'})} href={config.contact.whatsappUrl} target="_blank" rel="noreferrer">WhatsApp ↗</a> : null}
+          {config.contact?.email ? <a className="footerSocial" onClick={()=>recordEvent('contact_opened',{channel:'email',placement:'footer'})} href={`mailto:${config.contact.email}`}>{config.contact.email}</a> : null}
           {telegramUrl && telegramQrPath ? <a className="footerQrLink" href={telegramUrl} onClick={()=>recordEvent('contact_opened',{channel:'telegram_qr',placement:'footer'})} target="_blank" rel="noreferrer" aria-label={t.footerQrAlt}><img className="footerQr" src={telegramQrPath} alt={t.footerQrAlt} loading="lazy" /></a> : null}
         </section>
         <section className="footerOfficial" aria-labelledby="footer-official-title">
