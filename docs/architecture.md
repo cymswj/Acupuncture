@@ -9,7 +9,8 @@
 - Russian-first SEO content pages
 
 内容层：
-- `config/site.json`（单一事实源）
+- `config/site.json`（静态发布基线）
+- PostgreSQL `site_settings`（正式后端启用后的公开运行时覆盖）
 - `scripts/sync-runtime-config.mjs`（构建时发布运行时配置）
 - Telegram / VK / WhatsApp / Email
 - 医院信息
