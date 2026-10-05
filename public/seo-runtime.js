@@ -38,7 +38,11 @@
         if (node.tagName === 'A') node.href = phoneUrl
       })
       document.querySelectorAll('[data-service-telegram]').forEach(node => {
-        if (!telegramUrl) return
+        if (!telegramUrl) {
+          node.hidden = true
+          return
+        }
+        node.hidden = false
         node.textContent = telegramHandle + ' ↗'
         if (node.tagName === 'A') {
           node.href = telegramUrl
@@ -47,10 +51,19 @@
         }
       })
       document.querySelectorAll('[data-service-qr]').forEach(node => {
-        if (node.tagName === 'IMG' && qrPath) node.src = qrPath
+        if (!telegramUrl || !qrPath) {
+          node.hidden = true
+          return
+        }
+        node.hidden = false
+        if (node.tagName === 'IMG') node.src = qrPath
       })
       document.querySelectorAll('[data-service-qr-link]').forEach(node => {
-        if (!telegramUrl) return
+        if (!telegramUrl) {
+          node.hidden = true
+          return
+        }
+        node.hidden = false
         if (node.tagName === 'A') {
           node.href = telegramUrl
           node.target = '_blank'
