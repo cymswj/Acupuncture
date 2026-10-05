@@ -1,9 +1,11 @@
 import http from 'node:http'
 import crypto from 'node:crypto'
 import fs from 'node:fs/promises'
+import { promisify } from 'node:util'
 import pg from 'pg'
 
 const { Pool } = pg
+const scryptAsync = promisify(crypto.scrypt)
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 10, idleTimeoutMillis: 30000, connectionTimeoutMillis: 5000 })
 pool.on('error', error => console.error('Unexpected PostgreSQL pool error', error))
 const PORT = Number(process.env.PORT || 8787)
