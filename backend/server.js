@@ -386,8 +386,9 @@ const server = http.createServer(async (req, res) => {
       const session = await requireAdmin(req)
       if (!session) return json(res, 401, { error: 'unauthorized' })
       const result = await pool.query('SELECT settings,updated_at,updated_by FROM site_settings WHERE id=TRUE')
+      const settings = cleanPublicSettings(result.rows[0]?.settings || {})
       return json(res, 200, {
-        settings: result.rows[0]?.settings || {},
+        settings,
         updatedAt: result.rows[0]?.updated_at || null,
         updatedBy: result.rows[0]?.updated_by || null,
       })
