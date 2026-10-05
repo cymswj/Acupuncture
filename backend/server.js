@@ -251,7 +251,8 @@ function cleanEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(candidate) ? candidate : ''
 }
 function cleanPhone(value) {
-  return String(value || '').trim().slice(0, 40)
+  const candidate = String(value || '').trim().slice(0, 40)
+  return candidate && !/^\+?[\d ()-]{7,40}$/.test(candidate) ? '' : candidate
 }
 let publicSettingsCache = { settings: null, expiresAt: 0, updatedAt: null }
 
@@ -384,6 +385,9 @@ const server = http.createServer(async (req, res) => {
       const session = await requireAdmin(req)
       if (!session) return json(res, 401, { error: 'unauthorized' })
       const settings = cleanPublicSettings(await readBody(req))
+      if (!settings.brand.name) return json(res, 400, { error: 'brand name is required' })
+      if (!settings.hospital.officialName) return json(res, 400, { error: 'hospital official name is required' })
+      if (!settings.hospital.website) return json(res, 400, { error: 'hospital website is required' })
       const client = await pool.connect()
       let updatedAt
       try {
