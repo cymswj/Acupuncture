@@ -37,3 +37,6 @@
 .settingsBar{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-top:14px;padding-top:14px;border-top:1px solid #dde2da;color:#758078;font-size:11px}
 @media(max-width:900px){.settingsGrid{grid-template-columns:1fr}.settingsWide{grid-column:auto}.settingsTwo,.settingsThree{grid-template-columns:1fr}}
 @media(max-width:650px){.settingsPanel>summary{align-items:flex-start;flex-direction:column}.settingsBar{align-items:flex-start;flex-direction:column}}
+.adminSearch{display:flex;gap:8px;margin:0 0 14px}.adminSearch input{flex:1;min-width:180px}.adminSearch button,.paginationBar button{border:1px solid #d3d8d0;background:#fffefa;color:#274236;padding:9px 12px;border-radius:5px;cursor:pointer}.adminSearch button[type="submit"]{background:#1c5544;color:#fff;border-color:#1c5544}.paginationBar{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-top:18px;color:#758078;font-size:12px}.paginationBar>div{display:flex;gap:8px}.paginationBar button:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:650px){.adminSearch{flex-wrap:wrap}.adminSearch input{flex-basis:100%}.paginationBar{align-items:flex-start;flex-direction:column}}
+
