@@ -281,8 +281,22 @@ function App() {
     fetch(`${import.meta.env.BASE_URL}config/site.json`, { cache: 'no-store' })
       .then(r => r.ok ? r.json() : Promise.reject(new Error('config unavailable')))
       .then(data => {
-        const mergeConfig = (prev, next) => ({ ...prev, ...next, contact: { ...prev.contact, ...(next.contact || {}) }, hospital: { ...prev.hospital, ...(next.hospital || {}) }, seo: { ...prev.seo, ...(next.seo || {}) } })
-        setConfig(prev => mergeConfig(prev, data))
+        const mergePublicConfig = (prev, next) => ({
+          ...prev,
+          brand: { ...prev.brand, ...(next.brand || {}) },
+          contact: { ...prev.contact, ...(next.contact || {}) },
+          hospital: { ...prev.hospital, ...(next.hospital || {}) },
+          doctors: Array.isArray(next.doctors) ? next.doctors : prev.doctors,
+          pricing: { ...prev.pricing, ...(next.pricing || {}) },
+          seo: {
+            ...prev.seo,
+            ...(next.seo || {}),
+            ru: { ...prev.seo?.ru, ...(next.seo?.ru || {}) },
+            zh: { ...prev.seo?.zh, ...(next.seo?.zh || {}) },
+            en: { ...prev.seo?.en, ...(next.seo?.en || {}) },
+          },
+        })
+        setConfig(prev => ({ ...prev, ...data, contact: { ...prev.contact, ...(data.contact || {}) }, hospital: { ...prev.hospital, ...(data.hospital || {}) }, seo: { ...prev.seo, ...(data.seo || {}) } }))
         const requests = []
         if (data.contentApi?.enabled && data.contentApi.url) requests.push(fetch(data.contentApi.url, { cache: 'no-store' }).then(r => r.ok ? r.json() : Promise.reject(new Error('content api unavailable'))))
         if (data.adminApi?.enabled && data.adminApi.baseUrl) requests.push(fetch(data.adminApi.baseUrl.replace(/\/$/, '') + '/api/public-settings', { cache: 'no-store' }).then(r => r.ok ? r.json() : Promise.reject(new Error('public settings unavailable'))))
@@ -290,7 +304,7 @@ function App() {
           results.forEach(result => {
             if (result.status !== 'fulfilled') return
             const next = result.value?.settings || result.value
-            if (next && typeof next === 'object') setConfig(prev => mergeConfig(prev, next))
+            if (next && typeof next === 'object') setConfig(prev => mergePublicConfig(prev, next))
           })
         })
       })
@@ -492,7 +506,7 @@ function App() {
           <h2 id="footer-contact-title">{t.footerContactTitle}</h2>
           {contactPhone ? <a className="footerPhone" onClick={()=>recordEvent('contact_opened',{channel:'phone',placement:'footer'})} href={contactPhoneUrl || ('tel:' + contactPhone.replace(/[^\d+]/g, ''))}><span>{t.contactPhoneLabel}</span>{contactPhone}</a> : null}
           {telegramUrl ? <a className="footerTelegram" onClick={()=>recordEvent('contact_opened',{channel:'telegram',placement:'footer'})} href={telegramUrl} target="_blank" rel="noreferrer">{telegramHandle || 'Telegram'} ↗</a> : null}
-          {telegramQrPath ? <img className="footerQr" src={telegramQrPath} alt={t.footerQrAlt} loading="lazy" /> : null}
+          {telegramQrPath ? <a className="footerQrLink" href={telegramUrl || '#'} target={telegramUrl ? '_blank' : undefined} rel={telegramUrl ? 'noreferrer' : undefined} aria-label={t.footerQrAlt}><img className="footerQr" src={telegramQrPath} alt={t.footerQrAlt} loading="lazy" /></a> : null}
         </section>
         <section className="footerOfficial" aria-labelledby="footer-official-title">
           <h2 id="footer-official-title">{t.footerOfficialTitle}</h2>
