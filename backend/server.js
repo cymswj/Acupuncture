@@ -525,16 +525,38 @@ const server = http.createServer(async (req, res) => {
       if (!requestFromAllowedOrigin(req)) return json(res, 403, { error: 'origin not allowed' })
       const ip = clientIp(req)
       if (!allowPublicRequest('lead', ip, 30, 15 * 60 * 1000)) return json(res, 429, { error: 'too many lead requests' })
+      const idempotencyKey = String(req.headers['idempotency-key'] || '').trim()
+      if (idempotencyKey && !/^[A-Za-z0-9_-]{16,120}$/.test(idempotencyKey)) return json(res, 400, { error: 'invalid idempotency key' })
       const lead = cleanLead(await readBody(req))
       if (!lead.name || !lead.contact || !lead.service) return json(res, 400, { error: 'name, contact and service are required' })
       const id = createLeadId()
       const client = await pool.connect()
+      let created = false
       try {
         await client.query('BEGIN')
-        await client.query(
-          'INSERT INTO leads (id,stage,source,medium,campaign,language,name,contact,preferred_date,service) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
-          [id,'appointment_requested',lead.source,lead.medium,lead.campaign,lead.language,lead.name,lead.contact,lead.preferredDate,lead.service]
-        )
+        let inserted
+        if (idempotencyKey) {
+          inserted = await client.query(
+            'INSERT INTO leads (id,idempotency_key,stage,source,medium,campaign,language,name,contact,preferred_date,service) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT (idempotency_key) DO NOTHING RETURNING id,stage',
+            [id,idempotencyKey,'appointment_requested',lead.source,lead.medium,lead.campaign,lead.language,lead.name,lead.contact,lead.preferredDate,lead.service]
+          )
+        } else {
+          inserted = await client.query(
+            'INSERT INTO leads (id,stage,source,medium,campaign,language,name,contact,preferred_date,service) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
+            [id,'appointment_requested',lead.source,lead.medium,lead.campaign,lead.language,lead.name,lead.contact,lead.preferredDate,lead.service]
+          )
+        }
+
+        if (!inserted.rowCount && idempotencyKey) {
+          const existing = await client.query(
+            'SELECT id,stage FROM leads WHERE idempotency_key=$1',
+            [idempotencyKey]
+          )
+          await client.query('COMMIT')
+          return json(res, 200, { ok: true, id: existing.rows[0]?.id || null, stage: existing.rows[0]?.stage || 'appointment_requested', replayed: true })
+        }
+
+        created = Boolean(inserted.rowCount)
         await client.query('INSERT INTO funnel_events(event_name,path,language,source,medium,campaign) VALUES($1,$2,$3,$4,$5,$6)', ['lead_created','/api/leads',lead.language,lead.source,lead.medium,lead.campaign])
         await client.query('INSERT INTO funnel_events(event_name,path,language,source,medium,campaign) VALUES($1,$2,$3,$4,$5,$6)', ['appointment_requested','/api/leads',lead.language,lead.source,lead.medium,lead.campaign])
         await client.query('COMMIT')
@@ -544,7 +566,7 @@ const server = http.createServer(async (req, res) => {
       } finally {
         client.release()
       }
-      return json(res, 201, { ok: true, id, stage: 'appointment_requested' })
+      return json(res, created ? 201 : 200, { ok: true, id, stage: 'appointment_requested', replayed: false })
     }
 
     if (req.method === 'POST' && url.pathname === '/api/events') {
