@@ -18,6 +18,7 @@ for (const file of required) {
 }
 
 const config = JSON.parse(fs.readFileSync('dist/config/site.json', 'utf8'))
+const servicePhoneDigits = String(config.contact.phone || '').replace(/\D/g, '')
 if (typeof config.contact?.phone !== 'string' || config.contact.phone.trim() && !/^\+?[\d ()-]{7,40}$/.test(config.contact.phone.trim())) throw new Error('Build config phone format mismatch')
 if (config.contact?.telegramUrl && !config.contact.telegramUrl.startsWith('https://')) throw new Error('Build config Telegram URL must be HTTPS')
 if (config.contact?.telegramQrPath !== '/Acupuncture/telegram-qr.svg') throw new Error('Build config QR path mismatch')
@@ -33,7 +34,7 @@ for (const name of ['acupuncture','hospital','pricing','doctors','faq','prepare-
   const file = 'dist/ru/' + name + '/index.html'
   const page = fs.readFileSync(file, 'utf8')
   if (!page.includes('class="seoFooter"')) throw new Error('SEO footer missing: ' + name)
-  if (!page.includes('+8613876636537')) throw new Error('SEO footer phone missing: ' + name)
+  if (servicePhoneDigits && !page.includes(servicePhoneDigits)) throw new Error('SEO footer phone missing: ' + name)
   if (!page.includes('telegram-qr.svg')) throw new Error('SEO footer QR missing: ' + name)
   if (page.includes('https://cymswj.github.io/Acupuncture/ru/' + name + '/index.html')) {
     throw new Error('JSON-LD/canonical path still uses index.html: ' + name)
