@@ -137,4 +137,7 @@ if (!backend.includes('salt.length !== 16') || !backend.includes('expected.lengt
 if (!backend.includes('USER node')) throw new Error('API container must run as non-root')
 if (!fs.readFileSync('.github/workflows/deploy.yml','utf8').includes('actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1')) throw new Error('GitHub Actions should pin checkout to a commit SHA')
 
+if (!fs.existsSync('package-lock.json') || !fs.existsSync('backend/package-lock.json')) throw new Error('npm lockfiles are required for reproducible builds')
+if (!fs.existsSync('.gitignore')) throw new Error('Repository must ignore local secrets and build artifacts')
+if (!fs.existsSync('backend/.dockerignore')) throw new Error('API Docker build context should exclude secrets and metadata')
 console.log('Repository checks passed')
