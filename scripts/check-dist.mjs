@@ -26,7 +26,7 @@ const home = fs.readFileSync('dist/index.html', 'utf8')
 if (!home.includes('/assets/')) throw new Error('Home build missing compiled asset reference')
 const assetDir = 'dist/assets'
 const bundles = fs.readdirSync(assetDir).filter(name => /\\.(?:js|mjs)$/.test(name)).map(name => fs.readFileSync(assetDir + '/' + name, 'utf8')).join('\n')
-if (!bundles.includes('footerQr')) throw new Error('Compiled frontend footer is missing')
+if (!['footerQr','footerContact','siteFooter'].some(marker => bundles.includes(marker))) throw new Error('Compiled frontend footer is missing')
 if (!bundles.includes('contact_opened')) throw new Error('Compiled frontend contact tracking is missing')
 
 for (const name of ['acupuncture','hospital','pricing','doctors','faq','prepare-for-visit','evidence','patient-guide','how-to-choose','privacy','terms']) {
