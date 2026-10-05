@@ -5,7 +5,7 @@
 ## 当前能力
 
 POST /api/auth/login
-管理员账号密码登录。登录成功后返回短期 Bearer session token，服务器只在 PostgreSQL 保存 token 的 SHA-256 摘要。
+管理员账号密码登录。登录成功后通过 HttpOnly + Secure + SameSite Cookie 建立 session，浏览器端不保存 token；服务器仅在 PostgreSQL 保存 session token 的 SHA-256 摘要。
 
 GET /api/auth/me
 验证当前管理员 session。
@@ -20,7 +20,10 @@ POST /api/events
 仅接收非医疗漏斗事件。
 
 GET /api/leads
-需要管理员 session，返回最近 500 条 Lead。
+需要管理员 session。默认返回最近 100 条，最多 500 条，支持 limit、offset、stage、source、q 筛选，并返回 total。
+
+GET /api/audit
+需要管理员 session，返回最近操作记录，支持 limit、offset。
 
 GET /api/dashboard
 需要管理员 session，返回 Lead 总量、阶段统计、主要来源和事件数量。
