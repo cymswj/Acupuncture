@@ -266,6 +266,7 @@ function cleanPublicSettings(input = {}) {
   const ru = seo.ru && typeof seo.ru === 'object' ? seo.ru : {}
   const zh = seo.zh && typeof seo.zh === 'object' ? seo.zh : {}
   const en = seo.en && typeof seo.en === 'object' ? seo.en : {}
+  const hospital = source.hospital && typeof source.hospital === 'object' ? source.hospital : {}
 
   return {
     brand: {
@@ -282,6 +283,16 @@ function cleanPublicSettings(input = {}) {
       email: cleanEmail(contact.email),
       telegramShareUrl: cleanHttpsUrl(contact.telegramShareUrl),
       telegramQrPath: '/Acupuncture/telegram-qr.svg',
+    },
+    hospital: {
+      officialName: String(hospital.officialName || '').trim().slice(0, 160),
+      ruName: String(hospital.ruName || '').trim().slice(0, 200),
+      address: String(hospital.address || '').trim().slice(0, 240),
+      phone: cleanPhone(hospital.phone),
+      website: cleanHttpsUrl(hospital.website),
+      department: String(hospital.department || '').trim().slice(0, 120),
+      sourceUrl: cleanHttpsUrl(hospital.sourceUrl),
+      lastVerified: /^\d{4}-\d{2}-\d{2}$/.test(String(hospital.lastVerified || '')) ? hospital.lastVerified : '',
     },
     seo: {
       defaultTitle: String(seo.defaultTitle || '').trim().slice(0, 180),
