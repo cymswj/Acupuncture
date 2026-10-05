@@ -382,6 +382,10 @@ function App() {
     if (formSubmitting) return
     setFormSubmitting(true)
     setFormMessage('')
+    let telegramWindow = null
+    if (telegramUrl) {
+      try { telegramWindow = window.open('about:blank', '_blank', 'noopener,noreferrer') } catch {}
+    }
     const text = [
       'Запрос на визит / Visit request',
       `Имя: ${form.name || '—'}`,
@@ -450,9 +454,11 @@ function App() {
       if (telegramUrl) {
         const supportsPrefill = !telegramShareUrl && /^https:\/\/t\.me\/[^/?#]+\/?$/.test(telegramUrl)
         const withText = supportsPrefill ? telegramUrl.replace(/\/$/, '') + '?text=' + encodeURIComponent(text) : (telegramShareUrl ? (telegramShareUrl.includes('?') ? telegramShareUrl + '&text=' + encodeURIComponent(text) : telegramShareUrl + '?text=' + encodeURIComponent(text)) : telegramUrl)
-        window.open(withText, '_blank', 'noopener,noreferrer')
+        if (telegramWindow && !telegramWindow.closed) telegramWindow.location.href = withText
+        else window.open(withText, '_blank', 'noopener,noreferrer')
       }
     } catch (error) {
+      if (telegramWindow && !telegramWindow.closed) telegramWindow.close()
       console.error(error)
       setFormMessage('Не удалось создать запрос. Сообщение уже подготовлено — сохраните его и свяжитесь с сервисом другим способом.')
     } finally {
@@ -462,7 +468,7 @@ function App() {
 
   return <div className="site">
     <header className="header"><div className="container nav">
-      <a className="brand" href="/Acupuncture/">{config.brand.name}<span>TCM</span></a>
+      <a className="brand" href={import.meta.env.BASE_URL}>{config.brand.name}<span>TCM</span></a>
       <nav>{t.nav.map((x,i)=><button key={x} onClick={()=>scroll(['about','hospital','doctor','process','pricing','faq'][i])}>{x}</button>)}</nav>
       <div className="langs">{['ru','zh','en'].map(x=><button className={lang===x?'active':''} key={x} onClick={()=>switchLang(x)}>{x.toUpperCase()}</button>)}</div>
     </div></header>
@@ -493,7 +499,7 @@ function App() {
 
       {lang === 'ru' ? <section className="section soft" id="resources"><div className="container"><div className="kicker">07 · РУССКИЕ РЕСУРСЫ</div><div className="resourceGrid">{seoLinks.map(([href,label])=><a className="resourceCard" key={href} href={href}><span>{label}</span><strong>→</strong></a>)}</div></div></section> : null}
 
-      <section className="cta" id="request"><div className="container ctaInner"><div><div className="kicker">CONTACT</div><h2>{t.ctaTitle}</h2><p>{t.ctaText}</p></div><div className="ctaContact contactPanel">{contactPhone ? <a className="contactPhone" onClick={()=>recordEvent('contact_opened',{channel:'phone',placement:'cta'})} href={contactPhoneUrl || ('tel:' + contactPhone.replace(/[^\d+]/g, ''))}>{contactPhone}</a> : null}{telegramUrl ? <a className="btn primary" onClick={()=>recordEvent('contact_opened',{channel:'telegram',placement:'cta'})} href={telegramUrl} target="_blank" rel="noreferrer">{telegramHandle ? `Telegram ${telegramHandle}` : 'Telegram'} →</a> : null}{!telegramUrl && !telegramQrPath ? <span className="configBadge">{t.formNoTelegram}</span> : null}{telegramQrPath ? <figure className="telegramQr"><img src={telegramQrPath} alt="Telegram QR code" loading="lazy" /><figcaption>Telegram</figcaption></figure> : null}</div></div>
+      <section className="cta" id="request"><div className="container ctaInner"><div><div className="kicker">CONTACT</div><h2>{t.ctaTitle}</h2><p>{t.ctaText}</p></div><div className="ctaContact contactPanel">{contactPhone ? <a className="contactPhone" onClick={()=>recordEvent('contact_opened',{channel:'phone',placement:'cta'})} href={contactPhoneUrl || ('tel:' + contactPhone.replace(/[^\d+]/g, ''))}>{contactPhone}</a> : null}{telegramUrl ? <a className="btn primary" onClick={()=>recordEvent('contact_opened',{channel:'telegram',placement:'cta'})} href={telegramUrl} target="_blank" rel="noreferrer">{telegramHandle ? `Telegram ${telegramHandle}` : 'Telegram'} →</a> : null}{!telegramUrl && !telegramQrPath ? <span className="configBadge">{t.formNoTelegram}</span> : null}{telegramUrl && telegramQrPath ? <a className="telegramQrLink" href={telegramUrl} onClick={()=>recordEvent('contact_opened',{channel:'telegram_qr',placement:'cta'})} target="_blank" rel="noreferrer"><figure className="telegramQr"><img src={telegramQrPath} alt="Telegram QR code" loading="lazy" /><figcaption>Telegram</figcaption></figure></a> : null}</div></div>
         <div className="container requestBox"><form onSubmit={submitForm} onFocus={()=>{ if (!formStarted.current) { formStarted.current = true; recordEvent('form_start',{form:'visit_request'}) } }}><h3>{t.formTitle}</h3><div className="formGrid"><label><span>{t.formName}</span><input required value={form.name} onChange={e=>setForm({...form,name:e.target.value})} autoComplete="name" /></label><label><span>{t.formContact}</span><input required value={form.contact} onChange={e=>setForm({...form,contact:e.target.value})} autoComplete="tel" /></label><label><span>{t.formDate}</span><input type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})} /></label><label><span>{t.formService}</span><select value={form.service} onChange={e=>setForm({...form,service:e.target.value})}>{t.formServiceOptions.map(x=><option key={x}>{x}</option>)}</select></label></div><label><span>{t.formNote}</span><textarea rows="3" value={form.note} onChange={e=>setForm({...form,note:e.target.value})} placeholder={t.formNotePlaceholder} /></label><label className="check"><input type="checkbox" required /> <span>{t.formConsent}</span></label><button className="btn primary" type="submit" disabled={formSubmitting}>{formSubmitting ? (lang==='ru'?'Отправка…':lang==='zh'?'提交中…':'Sending…') : t.formSubmit}</button>{formMessage ? <p className="formMessage">{formMessage}</p> : null}{preparedMessage ? <div className="preparedMessage"><pre>{preparedMessage}</pre><button type="button" className="btn ghost" onClick={()=>navigator.clipboard?.writeText(preparedMessage)}>{lang==='ru'?'Копировать сообщение':lang==='zh'?'复制消息':'Copy message'}</button></div> : null}</form></div>
       </section>
     </main>
@@ -517,7 +523,7 @@ function App() {
           <h2 id="footer-contact-title">{t.footerContactTitle}</h2>
           {contactPhone ? <a className="footerPhone" onClick={()=>recordEvent('contact_opened',{channel:'phone',placement:'footer'})} href={contactPhoneUrl || ('tel:' + contactPhone.replace(/[^\d+]/g, ''))}><span>{t.contactPhoneLabel}</span>{contactPhone}</a> : null}
           {telegramUrl ? <a className="footerTelegram" onClick={()=>recordEvent('contact_opened',{channel:'telegram',placement:'footer'})} href={telegramUrl} target="_blank" rel="noreferrer">{telegramHandle || 'Telegram'} ↗</a> : null}
-          {telegramQrPath ? <a className="footerQrLink" href={telegramUrl || '#'} target={telegramUrl ? '_blank' : undefined} rel={telegramUrl ? 'noreferrer' : undefined} aria-label={t.footerQrAlt}><img className="footerQr" src={telegramQrPath} alt={t.footerQrAlt} loading="lazy" /></a> : null}
+          {telegramUrl && telegramQrPath ? <a className="footerQrLink" href={telegramUrl} onClick={()=>recordEvent('contact_opened',{channel:'telegram_qr',placement:'footer'})} target="_blank" rel="noreferrer" aria-label={t.footerQrAlt}><img className="footerQr" src={telegramQrPath} alt={t.footerQrAlt} loading="lazy" /></a> : null}
         </section>
         <section className="footerOfficial" aria-labelledby="footer-official-title">
           <h2 id="footer-official-title">{t.footerOfficialTitle}</h2>
