@@ -192,8 +192,16 @@ async function requireAdmin(req) {
   return session
 }
 
+function isValidIsoDate(value) {
+  const candidate = String(value || '').trim()
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(candidate)) return false
+  const [year, month, day] = candidate.split('-').map(Number)
+  const date = new Date(Date.UTC(year, month - 1, day))
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+}
 function cleanLead(input) {
   const language = String(input.language || 'ru').trim().slice(0, 16)
+  const preferredDate = String(input.preferredDate || '').trim()
   return {
     source: String(input.source || 'direct').trim().slice(0, 80),
     medium: String(input.medium || '').trim().slice(0, 80),
@@ -201,7 +209,7 @@ function cleanLead(input) {
     language: ['ru', 'zh', 'en'].includes(language) ? language : 'ru',
     name: String(input.name || '').trim().slice(0, 120),
     contact: String(input.contact || '').trim().slice(0, 160),
-    preferredDate: /^\d{4}-\d{2}-\d{2}$/.test(String(input.preferredDate || '')) ? input.preferredDate : null,
+    preferredDate: isValidIsoDate(preferredDate) ? preferredDate : null,
     service: String(input.service || '').trim().slice(0, 160),
   }
 }
