@@ -241,6 +241,71 @@ function cleanOwner(value) {
   return String(value || '').trim().slice(0, 120)
 }
 
+function cleanHttpsUrl(value, maxLength = 500) {
+  const candidate = String(value || '').trim().slice(0, maxLength)
+  if (!candidate) return ''
+  try {
+    const url = new URL(candidate)
+    return url.protocol === 'https:' ? url.toString() : ''
+  } catch {
+    return ''
+  }
+}
+function cleanEmail(value) {
+  const candidate = String(value || '').trim().slice(0, 200)
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(candidate) ? candidate : ''
+}
+function cleanPhone(value) {
+  return String(value || '').trim().slice(0, 40)
+}
+function cleanPublicSettings(input = {}) {
+  const source = input && typeof input === 'object' ? input : {}
+  const brand = source.brand && typeof source.brand === 'object' ? source.brand : {}
+  const contact = source.contact && typeof source.contact === 'object' ? source.contact : {}
+  const seo = source.seo && typeof source.seo === 'object' ? source.seo : {}
+  const ru = seo.ru && typeof seo.ru === 'object' ? seo.ru : {}
+  const zh = seo.zh && typeof seo.zh === 'object' ? seo.zh : {}
+  const en = seo.en && typeof seo.en === 'object' ? seo.en : {}
+
+  return {
+    brand: {
+      name: String(brand.name || '').trim().slice(0, 80),
+      legalLine: String(brand.legalLine || '').trim().slice(0, 160),
+    },
+    contact: {
+      phone: cleanPhone(contact.phone),
+      phoneUrl: cleanPhone(contact.phone) ? ('tel:' + cleanPhone(contact.phone).replace(/[^\d+]/g, '')) : '',
+      telegramUrl: cleanHttpsUrl(contact.telegramUrl),
+      telegramHandle: String(contact.telegramHandle || '').trim().slice(0, 80),
+      vkUrl: cleanHttpsUrl(contact.vkUrl),
+      whatsappUrl: cleanHttpsUrl(contact.whatsappUrl),
+      email: cleanEmail(contact.email),
+      telegramShareUrl: cleanHttpsUrl(contact.telegramShareUrl),
+      telegramQrPath: '/Acupuncture/telegram-qr.svg',
+    },
+    seo: {
+      defaultTitle: String(seo.defaultTitle || '').trim().slice(0, 180),
+      defaultDescription: String(seo.defaultDescription || '').trim().slice(0, 320),
+      keywords: String(seo.keywords || '').trim().slice(0, 600),
+      ru: {
+        title: String(ru.title || '').trim().slice(0, 180),
+        description: String(ru.description || '').trim().slice(0, 320),
+        keywords: String(ru.keywords || '').trim().slice(0, 600),
+      },
+      zh: {
+        title: String(zh.title || '').trim().slice(0, 180),
+        description: String(zh.description || '').trim().slice(0, 320),
+        keywords: String(zh.keywords || '').trim().slice(0, 600),
+      },
+      en: {
+        title: String(en.title || '').trim().slice(0, 180),
+        description: String(en.description || '').trim().slice(0, 320),
+        keywords: String(en.keywords || '').trim().slice(0, 600),
+      },
+    },
+  }
+}
+
 async function ensureSchema() {
   const schemaPath = new URL('./schema.sql', import.meta.url)
   const schema = await fs.readFile(schemaPath, 'utf8')
@@ -281,6 +346,37 @@ const server = http.createServer(async (req, res) => {
       const session = await requireAdmin(req)
       if (!session) return json(res, 401, { error: 'unauthorized' })
       return json(res, 200, { ok: true, username: session.username })
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/public-settings') {
+      if (!allowPublicRequest('public-settings', clientIp(req), 120, 15 * 60 * 1000)) return json(res, 429, { error: 'too many requests' })
+      const result = await pool.query('SELECT settings,updated_at FROM site_settings WHERE id=TRUE')
+      return json(res, 200, { settings: result.rows[0]?.settings || {}, updatedAt: result.rows[0]?.updated_at || null })
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/settings') {
+      const session = await requireAdmin(req)
+      if (!session) return json(res, 401, { error: 'unauthorized' })
+      const result = await pool.query('SELECT settings,updated_at,updated_by FROM site_settings WHERE id=TRUE')
+      return json(res, 200, {
+        settings: result.rows[0]?.settings || {},
+        updatedAt: result.rows[0]?.updated_at || null,
+        updatedBy: result.rows[0]?.updated_by || null,
+      })
+    }
+
+    if (req.method === 'PUT' && url.pathname === '/api/settings') {
+      if (!requireJson(req)) return json(res, 415, { error: 'content-type must be application/json' })
+      if (!requestFromAllowedOrigin(req)) return json(res, 403, { error: 'origin not allowed' })
+      const session = await requireAdmin(req)
+      if (!session) return json(res, 401, { error: 'unauthorized' })
+      const settings = cleanPublicSettings(await readBody(req))
+      await pool.query(
+        'INSERT INTO site_settings(id,settings,updated_at,updated_by) VALUES(TRUE,$1,NOW(),$2) ON CONFLICT(id) DO UPDATE SET settings=$1,updated_at=NOW(),updated_by=$2',
+        [settings, session.username]
+      )
+      await audit(session.username, 'settings_update', null, req, { sections: ['brand','contact','seo'] })
+      return json(res, 200, { ok: true, settings })
     }
 
     if (req.method === 'POST' && url.pathname === '/api/auth/logout') {
