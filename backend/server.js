@@ -147,10 +147,10 @@ function parsePasswordHash(value) {
   if (!Number.isInteger(N) || !Number.isInteger(r) || !Number.isInteger(p) || !salt.length || !expected.length) return null
   return { N, r, p, salt, expected }
 }
-function verifyPassword(password) {
+async function verifyPassword(password) {
   const parsed = parsePasswordHash(ADMIN_PASSWORD_HASH)
   if (!parsed || parsed.expected.length !== 64) return false
-  const derived = crypto.scryptSync(String(password || ''), parsed.salt, parsed.expected.length, {
+  const derived = await scryptAsync(String(password || ''), parsed.salt, parsed.expected.length, {
     N: parsed.N,
     r: parsed.r,
     p: parsed.p,
