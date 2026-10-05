@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles.css'
 import { trackEvent } from './analytics.js'
-import { saveLead } from './crm.js'
 
 const fallbackConfig = {
   brand: { name: 'SANYA TCM', legalLine: 'International Patient Service' },
@@ -430,11 +429,8 @@ function App() {
         if (!response.ok) throw new Error(body?.error || 'lead API request failed')
         savedLeadId = body?.id || savedLeadId
       } else {
-        saveLead(lead)
-      }
-
-      if (!remoteLead) {
         recordEvent('appointment_requested', {
+
           leadId: savedLeadId,
           source: lead.source,
           language: lead.language,
