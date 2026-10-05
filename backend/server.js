@@ -6,7 +6,16 @@ import pg from 'pg'
 
 const { Pool } = pg
 const scryptAsync = promisify(crypto.scrypt)
-const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 10, idleTimeoutMillis: 30000, connectionTimeoutMillis: 5000 })
+const NODE_ENV = String(process.env.NODE_ENV || 'production').toLowerCase()
+const TRUST_PROXY = ['1', 'true', 'yes'].includes(String(process.env.TRUST_PROXY || '').toLowerCase())
+const MAX_RATE_LIMIT_KEYS = Math.max(1000, Math.min(50000, Number(process.env.MAX_RATE_LIMIT_KEYS || 10000)))
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
+  statement_timeout: 5000,
+})
 pool.on('error', error => console.error('Unexpected PostgreSQL pool error', error))
 const PORT = Number(process.env.PORT || 8787)
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin'
@@ -70,7 +79,29 @@ function readBody(req) {
 }
 
 function clientIp(req) {
-  return String(req.headers['x-real-ip'] || req.socket.remoteAddress || 'unknown').trim()
+  const forwarded = TRUST_PROXY ? req.headers['x-real-ip'] : ''
+  return String(forwarded || req.socket.remoteAddress || 'unknown').trim()
+}
+function assertRuntimeConfig() {
+  if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) throw new Error('PORT must be a valid TCP port')
+  if (!/^https:\/\//.test(ORIGIN)) throw new Error('CORS_ORIGIN must use HTTPS')
+  if (NODE_ENV === 'production' && SESSION_SAMESITE === 'none' && !ORIGIN.startsWith('https://')) {
+    throw new Error('SameSite=None requires an HTTPS origin')
+  }
+  if (!ADMIN_PASSWORD_HASH) throw new Error('ADMIN_PASSWORD_HASH must be configured')
+}
+function pruneRateLimitMap(map, now) {
+  for (const [key, item] of map) {
+    if (now >= item.resetAt) map.delete(key)
+  }
+  if (map.size <= MAX_RATE_LIMIT_KEYS) return
+  const overflow = map.size - MAX_RATE_LIMIT_KEYS
+  let removed = 0
+  for (const key of map.keys()) {
+    map.delete(key)
+    removed += 1
+    if (removed >= overflow) break
+  }
 }
 function requestFromAllowedOrigin(req) {
   const origin = String(req.headers.origin || '')
@@ -103,6 +134,7 @@ function isRateLimited(ip) {
 }
 function recordFailedLogin(ip) {
   const now = Date.now()
+  pruneRateLimitMap(loginAttempts, now)
   const item = loginAttempts.get(ip)
   if (!item || now >= item.resetAt) {
     loginAttempts.set(ip, { count: 1, resetAt: now + 15 * 60 * 1000 })
@@ -125,6 +157,7 @@ function cleanupLoginAttempts() {
 function allowPublicRequest(kind, ip, limit, windowMs) {
   const key = kind + ':' + ip
   const now = Date.now()
+  pruneRateLimitMap(publicAttempts, now)
   const item = publicAttempts.get(key)
   if (!item || now >= item.resetAt) {
     publicAttempts.set(key, { count: 1, resetAt: now + windowMs })
@@ -135,6 +168,8 @@ function allowPublicRequest(kind, ip, limit, windowMs) {
   return true
 }
 setInterval(cleanupLoginAttempts, 15 * 60 * 1000).unref()
+
+assertRuntimeConfig()
 
 function parsePasswordHash(value) {
   const parts = String(value || '').split('$')
@@ -686,6 +721,10 @@ const server = http.createServer(async (req, res) => {
     return json(res, error.statusCode || 500, { error: 'server error' })
   }
 })
+
+server.requestTimeout = 10000
+server.headersTimeout = 12000
+server.keepAliveTimeout = 5000
 
 const sessionCleanupTimer = setInterval(async () => {
   try {
