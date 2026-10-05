@@ -28,6 +28,15 @@ GET /api/audit
 GET /api/dashboard
 需要管理员 session，返回 Lead 总量、阶段统计、主要来源和事件数量。
 
+GET /api/settings
+需要管理员 session，读取网站公开设置的当前值。
+
+PUT /api/settings
+需要管理员 session，保存经过服务器白名单和格式校验的品牌、联系方式、医院公开资料与 SEO 设置。
+
+GET /api/public-settings
+公开读取已经保存的网站公开设置，供前台在启用共享后端时覆盖静态配置。
+
 PATCH /api/leads/:id
 需要管理员 session，可更新 stage、appointmentDate、visitDate、followupDate、valueCny、owner。
 
