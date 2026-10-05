@@ -16,7 +16,7 @@ const fallbackConfig = {
     phone: '+86 13876636537',
     phoneUrl: 'tel:+8613876636537',
     phoneLabel: 'Русскоязычная связь / 联系电话',
-    telegramQrPath: '/Acupuncture/telegram-qr.jpg'
+    telegramQrPath: '/Acupuncture/telegram-qr.svg'
   },
   hospital: {
     officialName: '三亚市中医院',
@@ -91,6 +91,19 @@ const copy = {
     formSuccess: 'Сообщение подготовлено. Проверьте текст перед отправкой.',
     official: 'Официальный сайт больницы',
     contact: 'Контакты',
+    contactPhoneLabel: 'Связь на русском',
+    footerTitle: 'SANYA TCM',
+    footerLinksTitle: 'Пациентам',
+    footerContactTitle: 'Связь',
+    footerOfficialTitle: 'Официальная информация',
+    footerPrivacy: 'Конфиденциальность',
+    footerTerms: 'Условия использования',
+    footerAbout: 'О сервисе',
+    footerVisit: 'Как проходит визит',
+    footerPricing: 'Стоимость',
+    footerFaq: 'FAQ',
+    footerHospital: 'Сайт больницы',
+    footerQrAlt: 'QR-код Telegram',
     footer: 'Информационный и организационный сервис для русскоязычных пациентов. Не является официальным сайтом больницы.',
   },
   zh: {
@@ -131,6 +144,19 @@ const copy = {
     formSuccess: '消息已经生成，请在发送前检查。',
     official: '医院官方网站',
     contact: '联系方式',
+    contactPhoneLabel: '俄语患者联系',
+    footerTitle: 'SANYA TCM',
+    footerLinksTitle: '患者服务',
+    footerContactTitle: '联系方式',
+    footerOfficialTitle: '官方信息',
+    footerPrivacy: '隐私政策',
+    footerTerms: '使用条款',
+    footerAbout: '服务介绍',
+    footerVisit: '就诊流程',
+    footerPricing: '费用说明',
+    footerFaq: '常见问题',
+    footerHospital: '医院官网',
+    footerQrAlt: 'Telegram 二维码',
     footer: '面向俄语患者的信息与组织服务，并非医院官方网站。'
   },
   en: {
@@ -171,6 +197,19 @@ const copy = {
     formSuccess: 'Message prepared. Review it before sending.',
     official: 'Official hospital website',
     contact: 'Contact',
+    contactPhoneLabel: 'Russian-language contact',
+    footerTitle: 'SANYA TCM',
+    footerLinksTitle: 'Patient information',
+    footerContactTitle: 'Contact',
+    footerOfficialTitle: 'Official information',
+    footerPrivacy: 'Privacy',
+    footerTerms: 'Terms',
+    footerAbout: 'About the service',
+    footerVisit: 'How the visit works',
+    footerPricing: 'Pricing',
+    footerFaq: 'FAQ',
+    footerHospital: 'Hospital website',
+    footerQrAlt: 'Telegram QR code',
     footer: 'Information and coordination service for Russian-speaking patients. Not the hospital’s official website.'
   }
 }
@@ -242,11 +281,18 @@ function App() {
     fetch(`${import.meta.env.BASE_URL}config/site.json`, { cache: 'no-store' })
       .then(r => r.ok ? r.json() : Promise.reject(new Error('config unavailable')))
       .then(data => {
-        setConfig(prev => ({ ...prev, ...data, contact: { ...prev.contact, ...(data.contact || {}) }, hospital: { ...prev.hospital, ...(data.hospital || {}) }, seo: { ...prev.seo, ...(data.seo || {}) } }))
-        if (data.contentApi?.enabled && data.contentApi.url) {
-          return fetch(data.contentApi.url, { cache: 'no-store' }).then(r => r.ok ? r.json() : Promise.reject(new Error('api unavailable')))
-            .then(remote => setConfig(prev => ({ ...prev, ...remote, contact: { ...prev.contact, ...(remote.contact || {}) }, hospital: { ...prev.hospital, ...(remote.hospital || {}) }, seo: { ...prev.seo, ...(remote.seo || {}) } })))
-        }
+        const mergeConfig = (prev, next) => ({ ...prev, ...next, contact: { ...prev.contact, ...(next.contact || {}) }, hospital: { ...prev.hospital, ...(next.hospital || {}) }, seo: { ...prev.seo, ...(next.seo || {}) } })
+        setConfig(prev => mergeConfig(prev, data))
+        const requests = []
+        if (data.contentApi?.enabled && data.contentApi.url) requests.push(fetch(data.contentApi.url, { cache: 'no-store' }).then(r => r.ok ? r.json() : Promise.reject(new Error('content api unavailable'))))
+        if (data.adminApi?.enabled && data.adminApi.baseUrl) requests.push(fetch(data.adminApi.baseUrl.replace(/\/$/, '') + '/api/public-settings', { cache: 'no-store' }).then(r => r.ok ? r.json() : Promise.reject(new Error('public settings unavailable'))))
+        return Promise.allSettled(requests).then(results => {
+          results.forEach(result => {
+            if (result.status !== 'fulfilled') return
+            const next = result.value?.settings || result.value
+            if (next && typeof next === 'object') setConfig(prev => mergeConfig(prev, next))
+          })
+        })
       })
       .catch(() => {})
       .finally(() => setConfigLoaded(true))
@@ -427,7 +473,39 @@ function App() {
       </section>
     </main>
 
-    <footer><div className="container footer"><div className="brand">{config.brand.name}<span>TCM</span></div><div><p>{t.footer}</p><div className="footerLinks"><a href={hospital.website} target="_blank" rel="noreferrer">{hospital.officialName}</a>{config.contact?.vkUrl ? <a href={config.contact.vkUrl} target="_blank" rel="noreferrer">VK</a> : null}{config.contact?.whatsappUrl ? <a href={config.contact.whatsappUrl} target="_blank" rel="noreferrer">WhatsApp</a> : null}{config.contact?.email ? <a href={`mailto:${config.contact.email}`}>{config.contact.email}</a> : null}</div></div><small>© 2026 {config.brand.name} · <a href={config.legal?.privacyPolicyUrl || '#'}>Privacy</a> · <a href={config.legal?.termsUrl || '#'}>Terms</a></small></div></footer>
+    <footer className="siteFooter">
+      <div className="container footerGrid">
+        <section className="footerBrand" aria-labelledby="footer-brand-title">
+          <h2 id="footer-brand-title">{config.brand.name}</h2>
+          <p className="footerTagline">{config.brand.legalLine || t.footerTitle}</p>
+          <p>{t.footer}</p>
+        </section>
+        <nav className="footerNav" aria-labelledby="footer-links-title">
+          <h2 id="footer-links-title">{t.footerLinksTitle}</h2>
+          <a href="#about">{t.footerAbout}</a>
+          <a href="#hospital">{t.nav[1]}</a>
+          <a href="#process">{t.footerVisit}</a>
+          <a href="#pricing">{t.footerPricing}</a>
+          <a href="#faq">{t.footerFaq}</a>
+        </nav>
+        <section className="footerContact" aria-labelledby="footer-contact-title">
+          <h2 id="footer-contact-title">{t.footerContactTitle}</h2>
+          {contactPhone ? <a className="footerPhone" onClick={()=>recordEvent('contact_opened',{channel:'phone',placement:'footer'})} href={contactPhoneUrl || ('tel:' + contactPhone.replace(/[^\d+]/g, ''))}><span>{t.contactPhoneLabel}</span>{contactPhone}</a> : null}
+          {telegramUrl ? <a className="footerTelegram" onClick={()=>recordEvent('contact_opened',{channel:'telegram',placement:'footer'})} href={telegramUrl} target="_blank" rel="noreferrer">{telegramHandle || 'Telegram'} ↗</a> : null}
+          {telegramQrPath ? <img className="footerQr" src={telegramQrPath} alt={t.footerQrAlt} loading="lazy" /> : null}
+        </section>
+        <section className="footerOfficial" aria-labelledby="footer-official-title">
+          <h2 id="footer-official-title">{t.footerOfficialTitle}</h2>
+          <a href={hospital.website} target="_blank" rel="noreferrer">{hospital.officialName} ↗</a>
+          <p>{hospital.address}</p>
+          <a className="footerDisclaimer" href={hospital.website} target="_blank" rel="noreferrer">{t.footerHospital}</a>
+        </section>
+      </div>
+      <div className="container footerBottom">
+        <span>© 2026 {config.brand.name}</span>
+        <nav aria-label="Legal"><a href={config.legal?.privacyPolicyUrl || '#'}>{t.footerPrivacy}</a><a href={config.legal?.termsUrl || '#'}>{t.footerTerms}</a></nav>
+      </div>
+    </footer>
   </div>
 }
 
