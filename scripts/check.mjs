@@ -58,6 +58,7 @@ for (const segment of ['ru/evidence/','ru/patient-guide/','ru/how-to-choose/','r
 }
 
 const source = fs.readFileSync('src/main.jsx','utf8')
+if (source.includes("const recordEvent = (name, properties = {}) => recordEvent(")) throw new Error('recordEvent must delegate to trackEvent, not itself')
 if (source.includes('enabled !== false')) throw new Error('Doctor display guard is unsafe; use enabled === true')
 if (source.includes("https://t.me/'") || source.includes('https://t.me/"')) throw new Error('Telegram placeholder is hard-coded in source')
 
