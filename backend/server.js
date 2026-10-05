@@ -554,7 +554,13 @@ const server = http.createServer(async (req, res) => {
         for (const [inputKey, column, normalize] of optionalFields) {
           if (!Object.prototype.hasOwnProperty.call(input, inputKey)) continue
           updateValues.push(normalize(input[inputKey]))
-          setClauses.push(column + '=
+          setClauses.push(column + '=$' + updateValues.length)
+        }
+        updateValues.push(id)
+        await client.query(
+          'UPDATE leads SET ' + setClauses.join(',') + ' WHERE id=$' + updateValues.length,
+          updateValues
+        )
         if (previousStage !== stage) {
           const eventByStage = {
             confirmed: 'appointment_confirmed',
