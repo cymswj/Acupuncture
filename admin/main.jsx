@@ -298,6 +298,7 @@ function App() {
         body: JSON.stringify(settingsDraft),
       })
       setSettingsDraft(extractSettings(config, body.settings || {}))
+      setSettingsUpdatedAt(body.updatedAt || new Date().toISOString())
       setSettingsMessage('网站设置已保存。新访客会读取最新配置；如前台尚未启用公共配置 API，则需要部署后端后才会生效。')
     } catch {
       setSettingsMessage('网站设置保存失败，请检查 API、登录状态和字段格式。')
