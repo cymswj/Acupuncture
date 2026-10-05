@@ -92,7 +92,7 @@ if (!admin.includes('医院公开资料')) throw new Error('Hospital settings UI
 if (!source.includes('/api/public-settings')) throw new Error('Frontend public settings loader is missing')
 if (!source.includes('siteFooter')) throw new Error('Responsive site footer is missing')
 if (!source.includes('mergePublicConfig')) throw new Error('Frontend public config isolation is missing')
-if (!source.includes("api('/api/leads?' + params.toString())")) throw new Error('CRM server-side filtering path is missing')
+if (!admin.includes("api('/api/leads?' + params.toString())")) throw new Error('CRM server-side filtering path is missing')
 if (!admin.includes('remoteTotal') || !admin.includes('PAGE_SIZE')) throw new Error('CRM pagination state is missing')
 if (!admin.includes('maxExport')) throw new Error('CRM bounded export is missing')
 if (!fs.existsSync('public/seo-runtime.js')) throw new Error('SEO runtime settings bridge is missing')
