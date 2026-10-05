@@ -5,6 +5,9 @@ const required = [
   'dist/telegram-qr.svg',
   'dist/index.html',
   'dist/admin/index.html',
+  'dist/zh/index.html',
+  'dist/en/index.html',
+  'dist/ru/index.html',
   'dist/ru/acupuncture/index.html',
   'dist/ru/hospital/index.html',
   'dist/ru/privacy/index.html',
@@ -23,6 +26,10 @@ if (typeof config.contact?.phone !== 'string' || config.contact.phone.trim() && 
 if (config.contact?.telegramUrl && !config.contact.telegramUrl.startsWith('https://')) throw new Error('Build config Telegram URL must be HTTPS')
 if (config.contact?.telegramQrPath !== '/Acupuncture/telegram-qr.svg') throw new Error('Build config QR path mismatch')
 
+for (const file of ['dist/index.html','dist/zh/index.html','dist/en/index.html']) {
+  const html = fs.readFileSync(file, 'utf8')
+  if (!html.includes('/assets/')) throw new Error('Compiled asset reference missing: ' + file)
+}
 const home = fs.readFileSync('dist/index.html', 'utf8')
 if (!home.includes('/assets/')) throw new Error('Home build missing compiled asset reference')
 const assetDir = 'dist/assets'
