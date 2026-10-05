@@ -473,7 +473,11 @@ const server = http.createServer(async (req, res) => {
       }
       if (queryFilter) {
         values.push('%' + queryFilter + '%')
-        where.push('(name ILIKE 
+        const p = values.length
+        where.push(
+          '(name ILIKE $' + p + ' OR contact ILIKE $' + p + ' OR service ILIKE $' + p +
+          ' OR source ILIKE $' + p + ' OR medium ILIKE $' + p + ' OR campaign ILIKE $' + p + ')'
+        )
       }
       const whereSql = where.length ? 'WHERE ' + where.join(' AND ') : ''
       const countResult = await pool.query('SELECT COUNT(*)::int AS count FROM leads ' + whereSql, values)
