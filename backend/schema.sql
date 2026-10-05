@@ -1,5 +1,6 @@
 CREATE TABLE IF NOT EXISTS leads (
   id TEXT PRIMARY KEY,
+  idempotency_key TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   stage TEXT NOT NULL DEFAULT 'appointment_requested',
@@ -18,6 +19,7 @@ CREATE TABLE IF NOT EXISTS leads (
   owner TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_leads_stage ON leads(stage);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_leads_idempotency_key ON leads(idempotency_key) WHERE idempotency_key IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_leads_source ON leads(source);
 CREATE INDEX IF NOT EXISTS idx_leads_created_at ON leads(created_at);
 CREATE INDEX IF NOT EXISTS idx_leads_preferred_date ON leads(preferred_date);
