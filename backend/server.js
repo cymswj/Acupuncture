@@ -523,12 +523,6 @@ const server = http.createServer(async (req, res) => {
       const input = await readBody(req)
       const stage = String(input.stage || '')
       if (!stages.has(stage)) return json(res, 400, { error: 'invalid stage' })
-      const appointmentDate = cleanOptionalDate(input.appointmentDate)
-      const visitDate = cleanOptionalDate(input.visitDate)
-      const followupDate = cleanOptionalDate(input.followupDate)
-      const valueCny = cleanOptionalValue(input.valueCny)
-      const owner = cleanOwner(input.owner)
-
       const client = await pool.connect()
       let previousStage = null
       let leadSnapshot = null
@@ -541,10 +535,156 @@ const server = http.createServer(async (req, res) => {
         }
         previousStage = current.rows[0].stage
         leadSnapshot = current.rows[0]
+        const setClauses = ['stage=$1', 'updated_at=NOW()']
+        const updateValues = [stage]
+        const optionalFields = [
+          ['appointmentDate', 'appointment_date', value => cleanOptionalDate(value)],
+          ['visitDate', 'visit_date', value => cleanOptionalDate(value)],
+          ['followupDate', 'followup_date', value => cleanOptionalDate(value)],
+          ['valueCny', 'value_cny', value => cleanOptionalValue(value)],
+          ['owner', 'owner', value => {
+            if (value === '' || value == null) return null
+            return cleanOwner(value)
+          }],
+        ]
+        for (const [inputKey, column, normalize] of optionalFields) {
+          if (!Object.prototype.hasOwnProperty.call(input, inputKey)) continue
+          updateValues.push(normalize(input[inputKey]))
+          setClauses.push(column + '=
+        if (previousStage !== stage) {
+          const eventByStage = {
+            confirmed: 'appointment_confirmed',
+            visited: 'visit_completed',
+            followup: 'followup_completed',
+          }
+          const eventNames = ['lead_stage_changed']
+          if (eventByStage[stage]) eventNames.push(eventByStage[stage])
+          for (const eventName of eventNames) {
+            await client.query(
+              'INSERT INTO funnel_events(event_name,path,language,source,medium,campaign) VALUES($1,$2,$3,$4,$5,$6)',
+              [eventName,'/admin/',leadSnapshot.language,leadSnapshot.source,leadSnapshot.medium,leadSnapshot.campaign]
+            )
+          }
+        }
         await client.query(
-          'UPDATE leads SET stage=$1,updated_at=NOW(),appointment_date=COALESCE($2,appointment_date),visit_date=COALESCE($3,visit_date),followup_date=COALESCE($4,followup_date),value_cny=COALESCE($5,value_cny),owner=COALESCE($6,owner) WHERE id=$7',
-          [stage,appointmentDate,visitDate,followupDate,valueCny,owner || null,id]
+          'INSERT INTO audit_logs(username,action,target_id,ip,metadata) VALUES($1,$2,$3,$4,$5)',
+          [session.username, 'lead_update', id, clientIp(req), { previousStage, stage, updatedFields: Object.keys(input).filter(key => ['stage','appointmentDate','visitDate','followupDate','valueCny','owner'].includes(key)) }]
         )
+        await client.query('COMMIT')
+      } catch (error) {
+        try { await client.query('ROLLBACK') } catch {}
+        throw error
+      } finally {
+        client.release()
+      }
+      return json(res, 200, { ok: true, id, previousStage, stage })
+    }
+
+    return json(res, 404, { error: 'not found' })
+  } catch (error) {
+    console.error(error)
+    return json(res, error.statusCode || 500, { error: 'server error' })
+  }
+})
+
+const sessionCleanupTimer = setInterval(async () => {
+  try {
+    await pool.query('DELETE FROM admin_sessions WHERE expires_at < NOW()')
+  } catch (error) {
+    console.error('Session cleanup failed', error)
+  }
+}, 15 * 60 * 1000)
+sessionCleanupTimer.unref()
+
+ensureSchema()
+  .then(() => server.listen(PORT, () => console.log('Sanya TCM API listening on :' + PORT)))
+  .catch(error => {
+    console.error('Database schema initialization failed', error)
+    clearInterval(sessionCleanupTimer)
+    process.exit(1)
+  })
+
+async function shutdown(signal) {
+  clearInterval(sessionCleanupTimer)
+  console.log('Received ' + signal + ', shutting down')
+  server.close(async () => {
+    await pool.end()
+    process.exit(0)
+  })
+  setTimeout(() => process.exit(1), 10000).unref()
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))
+ + updateValues.length)
+        }
+        updateValues.push(id)
+        setClauses.push('id=
+        if (previousStage !== stage) {
+          const eventByStage = {
+            confirmed: 'appointment_confirmed',
+            visited: 'visit_completed',
+            followup: 'followup_completed',
+          }
+          const eventNames = ['lead_stage_changed']
+          if (eventByStage[stage]) eventNames.push(eventByStage[stage])
+          for (const eventName of eventNames) {
+            await client.query(
+              'INSERT INTO funnel_events(event_name,path,language,source,medium,campaign) VALUES($1,$2,$3,$4,$5,$6)',
+              [eventName,'/admin/',leadSnapshot.language,leadSnapshot.source,leadSnapshot.medium,leadSnapshot.campaign]
+            )
+          }
+        }
+        await client.query(
+          'INSERT INTO audit_logs(username,action,target_id,ip,metadata) VALUES($1,$2,$3,$4,$5)',
+          [session.username, 'lead_update', id, clientIp(req), { previousStage, stage, appointmentDate, visitDate, followupDate, valueCny, owner: owner || null }]
+        )
+        await client.query('COMMIT')
+      } catch (error) {
+        try { await client.query('ROLLBACK') } catch {}
+        throw error
+      } finally {
+        client.release()
+      }
+      return json(res, 200, { ok: true, id, previousStage, stage })
+    }
+
+    return json(res, 404, { error: 'not found' })
+  } catch (error) {
+    console.error(error)
+    return json(res, error.statusCode || 500, { error: 'server error' })
+  }
+})
+
+const sessionCleanupTimer = setInterval(async () => {
+  try {
+    await pool.query('DELETE FROM admin_sessions WHERE expires_at < NOW()')
+  } catch (error) {
+    console.error('Session cleanup failed', error)
+  }
+}, 15 * 60 * 1000)
+sessionCleanupTimer.unref()
+
+ensureSchema()
+  .then(() => server.listen(PORT, () => console.log('Sanya TCM API listening on :' + PORT)))
+  .catch(error => {
+    console.error('Database schema initialization failed', error)
+    clearInterval(sessionCleanupTimer)
+    process.exit(1)
+  })
+
+async function shutdown(signal) {
+  clearInterval(sessionCleanupTimer)
+  console.log('Received ' + signal + ', shutting down')
+  server.close(async () => {
+    await pool.end()
+    process.exit(0)
+  })
+  setTimeout(() => process.exit(1), 10000).unref()
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))
+ + updateValues.length)
+        await client.query('UPDATE leads SET ' + setClauses.slice(0, -1).join(',') + ' WHERE ' + setClauses.at(-1), updateValues)
         if (previousStage !== stage) {
           const eventByStage = {
             confirmed: 'appointment_confirmed',
