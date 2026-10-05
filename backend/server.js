@@ -137,7 +137,27 @@ function allowPublicRequest(kind, ip, limit, windowMs) {
 setInterval(cleanupLoginAttempts, 15 * 60 * 1000).unref()
 
 function parsePasswordHash(value) {
-  const parts = String(value || '').split('
+  const parts = String(value || '').split('$')
+  if (parts.length !== 6 || parts[0] !== 'scrypt') return null
+  const N = Number(parts[1])
+  const r = Number(parts[2])
+  const p = Number(parts[3])
+  const salt = Buffer.from(parts[4], 'base64')
+  const expected = Buffer.from(parts[5], 'base64')
+  if (N !== 16384 || r !== 8 || p !== 1 || salt.length !== 16 || expected.length !== 64) return null
+  return { N, r, p, salt, expected }
+}
+async function verifyPassword(password) {
+  const parsed = parsePasswordHash(ADMIN_PASSWORD_HASH)
+  if (!parsed) return false
+  const derived = await scryptAsync(String(password || ''), parsed.salt, parsed.expected.length, {
+    N: parsed.N,
+    r: parsed.r,
+    p: parsed.p,
+    maxmem: 64 * 1024 * 1024,
+  })
+  return crypto.timingSafeEqual(derived, parsed.expected)
+}
 function tokenHash(token) {
   return crypto.createHash('sha256').update(token).digest('hex')
 }
