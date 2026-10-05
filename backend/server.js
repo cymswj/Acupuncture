@@ -144,7 +144,7 @@ function parsePasswordHash(value) {
   const p = Number(parts[3])
   const salt = Buffer.from(parts[4], 'base64')
   const expected = Buffer.from(parts[5], 'base64')
-  if (!Number.isInteger(N) || !Number.isInteger(r) || !Number.isInteger(p) || !salt.length || !expected.length) return null
+  if (N !== 16384 || r !== 8 || p !== 1 || salt.length !== 16 || expected.length !== 64) return null
   return { N, r, p, salt, expected }
 }
 async function verifyPassword(password) {
