@@ -257,6 +257,11 @@ function setMeta({ title, description, keywords, canonical, lang, schema }) {
   ld.textContent = JSON.stringify(schema)
 }
 
+function createIdempotencyKey() {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID().replace(/-/g, '')
+  return Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join('')
+}
+
 function App() {
   const lang = getLang()
   const t = copy[lang]
@@ -268,6 +273,7 @@ function App() {
   const [formSubmitting, setFormSubmitting] = useState(false)
   const formStarted = useRef(false)
   const pageViewTracked = useRef(false)
+  const submissionKeyRef = useRef(createIdempotencyKey())
 
   const attribution = useMemo(() => {
     const p = new URLSearchParams(window.location.search)
@@ -423,7 +429,7 @@ function App() {
       if (remoteLead) {
         const response = await fetch(leadApiUrl, {
           method: config.leadsApi?.method || 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'Idempotency-Key': submissionKeyRef.current },
           body: JSON.stringify({ ...lead, id: undefined }),
         })
         let body = null
@@ -457,6 +463,7 @@ function App() {
 
 
       setFormMessage(t.formSuccess)
+      submissionKeyRef.current = createIdempotencyKey()
 
       if (telegramUrl) {
         const supportsPrefill = !telegramShareUrl && /^https:\/\/t\.me\/[^/?#]+\/?$/.test(telegramUrl)
