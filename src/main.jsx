@@ -15,7 +15,6 @@ const fallbackConfig = {
     email: '',
     phone: '+86 13876636537',
     phoneUrl: 'tel:+8613876636537',
-    phoneLabel: 'Русскоязычная связь / 联系电话',
     telegramQrPath: '/Acupuncture/telegram-qr.svg'
   },
   hospital: {
@@ -264,6 +263,7 @@ function App() {
   const [form, setForm] = useState({ name: '', contact: '', date: '', service: t.formServiceOptions[0], note: '' })
   const [formMessage, setFormMessage] = useState('')
   const [preparedMessage, setPreparedMessage] = useState('')
+  const [formSubmitting, setFormSubmitting] = useState(false)
   const formStarted = useRef(false)
   const pageViewTracked = useRef(false)
 
@@ -344,7 +344,7 @@ function App() {
   const telegramShareUrl = config.contact?.telegramShareUrl || ''
   const contactPhone = config.contact?.phone || ''
   const contactPhoneUrl = config.contact?.phoneUrl || ''
-  const contactPhoneLabel = config.contact?.phoneLabel || '联系'
+  const contactPhoneLabel = t.contactPhoneLabel || (lang === 'ru' ? 'Связь' : lang === 'zh' ? '联系方式' : 'Contact')
   const telegramQrPath = config.contact?.telegramQrPath || ''
   const analyticsRemoteUrl = config.analyticsApi?.enabled && config.analyticsApi.url ? config.analyticsApi.url : ''
   const analyticsRemoteMethod = config.analyticsApi?.method || 'POST'
@@ -375,6 +375,8 @@ function App() {
 
   async function submitForm(e) {
     e.preventDefault()
+    if (formSubmitting) return
+    setFormSubmitting(true)
     setFormMessage('')
     const text = [
       'Запрос на визит / Visit request',
@@ -446,6 +448,8 @@ function App() {
     } catch (error) {
       console.error(error)
       setFormMessage('Не удалось создать запрос. Сообщение уже подготовлено — сохраните его и свяжитесь с сервисом другим способом.')
+    } finally {
+      setFormSubmitting(false)
     }
   }
 
@@ -483,7 +487,7 @@ function App() {
       {lang === 'ru' ? <section className="section soft" id="resources"><div className="container"><div className="kicker">07 · РУССКИЕ РЕСУРСЫ</div><div className="resourceGrid">{seoLinks.map(([href,label])=><a className="resourceCard" key={href} href={href}><span>{label}</span><strong>→</strong></a>)}</div></div></section> : null}
 
       <section className="cta" id="request"><div className="container ctaInner"><div><div className="kicker">CONTACT</div><h2>{t.ctaTitle}</h2><p>{t.ctaText}</p></div><div className="ctaContact contactPanel">{contactPhone ? <a className="contactPhone" onClick={()=>recordEvent('contact_opened',{channel:'phone',placement:'cta'})} href={contactPhoneUrl || ('tel:' + contactPhone.replace(/[^\d+]/g, ''))}>{contactPhone}</a> : null}{telegramUrl ? <a className="btn primary" onClick={()=>recordEvent('contact_opened',{channel:'telegram',placement:'cta'})} href={telegramUrl} target="_blank" rel="noreferrer">{telegramHandle ? `Telegram ${telegramHandle}` : 'Telegram'} →</a> : null}{!telegramUrl && !telegramQrPath ? <span className="configBadge">{t.formNoTelegram}</span> : null}{telegramQrPath ? <figure className="telegramQr"><img src={telegramQrPath} alt="Telegram QR code" loading="lazy" /><figcaption>Telegram</figcaption></figure> : null}</div></div>
-        <div className="container requestBox"><form onSubmit={submitForm} onFocus={()=>{ if (!formStarted.current) { formStarted.current = true; recordEvent('form_start',{form:'visit_request'}) } }}><h3>{t.formTitle}</h3><div className="formGrid"><label><span>{t.formName}</span><input required value={form.name} onChange={e=>setForm({...form,name:e.target.value})} autoComplete="name" /></label><label><span>{t.formContact}</span><input required value={form.contact} onChange={e=>setForm({...form,contact:e.target.value})} autoComplete="tel" /></label><label><span>{t.formDate}</span><input type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})} /></label><label><span>{t.formService}</span><select value={form.service} onChange={e=>setForm({...form,service:e.target.value})}>{t.formServiceOptions.map(x=><option key={x}>{x}</option>)}</select></label></div><label><span>{t.formNote}</span><textarea rows="3" value={form.note} onChange={e=>setForm({...form,note:e.target.value})} placeholder="Не указывайте диагнозы и не прикрепляйте медицинские документы." /></label><label className="check"><input type="checkbox" required /> <span>{t.formConsent}</span></label><button className="btn primary" type="submit">{t.formSubmit}</button>{formMessage ? <p className="formMessage">{formMessage}</p> : null}{preparedMessage ? <div className="preparedMessage"><pre>{preparedMessage}</pre><button type="button" className="btn ghost" onClick={()=>navigator.clipboard?.writeText(preparedMessage)}>{lang==='ru'?'Копировать сообщение':lang==='zh'?'复制消息':'Copy message'}</button></div> : null}</form></div>
+        <div className="container requestBox"><form onSubmit={submitForm} onFocus={()=>{ if (!formStarted.current) { formStarted.current = true; recordEvent('form_start',{form:'visit_request'}) } }}><h3>{t.formTitle}</h3><div className="formGrid"><label><span>{t.formName}</span><input required value={form.name} onChange={e=>setForm({...form,name:e.target.value})} autoComplete="name" /></label><label><span>{t.formContact}</span><input required value={form.contact} onChange={e=>setForm({...form,contact:e.target.value})} autoComplete="tel" /></label><label><span>{t.formDate}</span><input type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})} /></label><label><span>{t.formService}</span><select value={form.service} onChange={e=>setForm({...form,service:e.target.value})}>{t.formServiceOptions.map(x=><option key={x}>{x}</option>)}</select></label></div><label><span>{t.formNote}</span><textarea rows="3" value={form.note} onChange={e=>setForm({...form,note:e.target.value})} placeholder="Не указывайте диагнозы и не прикрепляйте медицинские документы." /></label><label className="check"><input type="checkbox" required /> <span>{t.formConsent}</span></label><button className="btn primary" type="submit" disabled={formSubmitting}>{formSubmitting ? (lang==='ru'?'Отправка…':lang==='zh'?'提交中…':'Sending…') : t.formSubmit}</button>{formMessage ? <p className="formMessage">{formMessage}</p> : null}{preparedMessage ? <div className="preparedMessage"><pre>{preparedMessage}</pre><button type="button" className="btn ghost" onClick={()=>navigator.clipboard?.writeText(preparedMessage)}>{lang==='ru'?'Копировать сообщение':lang==='zh'?'复制消息':'Copy message'}</button></div> : null}</form></div>
       </section>
     </main>
 
