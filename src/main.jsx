@@ -429,18 +429,20 @@ function App() {
         saveLead(lead)
       }
 
-      recordEvent('appointment_requested', {
-        leadId: savedLeadId,
-        source: lead.source,
-        language: lead.language,
-        service: lead.service,
-      })
-      recordEvent('lead_created', {
-        leadId: savedLeadId,
-        source: lead.source,
-        language: lead.language,
-        service: lead.service,
-      })
+      if (!remoteLead) {
+        recordEvent('appointment_requested', {
+          leadId: savedLeadId,
+          source: lead.source,
+          language: lead.language,
+          service: lead.service,
+        })
+        recordEvent('lead_created', {
+          leadId: savedLeadId,
+          source: lead.source,
+          language: lead.language,
+          service: lead.service,
+        })
+      }
 
 
       setFormMessage(t.formSuccess)
