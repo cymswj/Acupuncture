@@ -199,14 +199,15 @@ async function requireAdmin(req) {
 }
 
 function cleanLead(input) {
+  const language = String(input.language || 'ru').trim().slice(0, 16)
   return {
-    source: String(input.source || 'direct').slice(0, 80),
-    medium: String(input.medium || '').slice(0, 80),
-    campaign: String(input.campaign || '').slice(0, 120),
-    language: String(input.language || 'ru').slice(0, 16),
+    source: String(input.source || 'direct').trim().slice(0, 80),
+    medium: String(input.medium || '').trim().slice(0, 80),
+    campaign: String(input.campaign || '').trim().slice(0, 120),
+    language: ['ru', 'zh', 'en'].includes(language) ? language : 'ru',
     name: String(input.name || '').trim().slice(0, 120),
     contact: String(input.contact || '').trim().slice(0, 160),
-    preferredDate: /^\\d{4}-\\d{2}-\\d{2}$/.test(String(input.preferredDate || '')) ? input.preferredDate : null,
+    preferredDate: /^\d{4}-\d{2}-\d{2}$/.test(String(input.preferredDate || '')) ? input.preferredDate : null,
     service: String(input.service || '').trim().slice(0, 160),
   }
 }
@@ -229,7 +230,7 @@ function parsePagination(url, defaultLimit = 100, maxLimit = 500) {
 }
 function cleanOptionalDate(value) {
   const candidate = String(value || '').trim()
-  return /^\\d{4}-\\d{2}-\\d{2}$/.test(candidate) ? candidate : null
+  return /^\d{4}-\d{2}-\d{2}$/.test(candidate) ? candidate : null
 }
 function cleanOptionalValue(value) {
   if (value === '' || value == null) return null
@@ -509,13 +510,48 @@ const server = http.createServer(async (req, res) => {
       const followupDate = cleanOptionalDate(input.followupDate)
       const valueCny = cleanOptionalValue(input.valueCny)
       const owner = cleanOwner(input.owner)
-      const updateResult = await pool.query(
-        'UPDATE leads SET stage=$1,updated_at=NOW(),appointment_date=COALESCE($2,appointment_date),visit_date=COALESCE($3,visit_date),followup_date=COALESCE($4,followup_date),value_cny=COALESCE($5,value_cny),owner=COALESCE($6,owner) WHERE id=$7',
-        [stage,appointmentDate,visitDate,followupDate,valueCny,owner || null,id]
-      )
-      if (!updateResult.rowCount) return json(res, 404, { error: 'lead not found' })
-      await audit(session.username, 'lead_update', id, req, { stage, appointmentDate, visitDate, followupDate, valueCny, owner: owner || null })
-      return json(res, 200, { ok: true, id, stage })
+
+      const client = await pool.connect()
+      let previousStage = null
+      let leadSnapshot = null
+      try {
+        await client.query('BEGIN')
+        const current = await client.query('SELECT stage,language,source,medium,campaign FROM leads WHERE id=$1 FOR UPDATE', [id])
+        if (!current.rowCount) {
+          await client.query('ROLLBACK')
+          return json(res, 404, { error: 'lead not found' })
+        }
+        previousStage = current.rows[0].stage
+        leadSnapshot = current.rows[0]
+        await client.query(
+          'UPDATE leads SET stage=$1,updated_at=NOW(),appointment_date=COALESCE($2,appointment_date),visit_date=COALESCE($3,visit_date),followup_date=COALESCE($4,followup_date),value_cny=COALESCE($5,value_cny),owner=COALESCE($6,owner) WHERE id=$7',
+          [stage,appointmentDate,visitDate,followupDate,valueCny,owner || null,id]
+        )
+        if (previousStage !== stage) {
+          const eventByStage = {
+            confirmed: 'appointment_confirmed',
+            visited: 'visit_completed',
+            followup: 'followup_completed',
+          }
+          const eventNames = ['lead_stage_changed']
+          if (eventByStage[stage]) eventNames.push(eventByStage[stage])
+          for (const eventName of eventNames) {
+            await client.query(
+              'INSERT INTO funnel_events(event_name,path,language,source,medium,campaign) VALUES($1,$2,$3,$4,$5,$6)',
+              [eventName,'/admin/',leadSnapshot.language,leadSnapshot.source,leadSnapshot.medium,leadSnapshot.campaign]
+            )
+          }
+        }
+        await client.query('COMMIT')
+      } catch (error) {
+        try { await client.query('ROLLBACK') } catch {}
+        throw error
+      } finally {
+        client.release()
+      }
+
+      await audit(session.username, 'lead_update', id, req, { previousStage, stage, appointmentDate, visitDate, followupDate, valueCny, owner: owner || null })
+      return json(res, 200, { ok: true, id, previousStage, stage })
     }
 
     return json(res, 404, { error: 'not found' })
