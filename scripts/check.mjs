@@ -79,6 +79,13 @@ if (!backend.includes('allowPublicRequest')) throw new Error('Public endpoint ra
 if (!backend.includes('createLeadId')) throw new Error('Server-generated Lead IDs are missing')
 if (!backend.includes('HttpOnly')) throw new Error('HttpOnly session cookie is missing')
 if (!backend.includes('Access-Control-Allow-Credentials')) throw new Error('credentialed CORS support is missing')
+if (!backend.includes("url.pathname === '/api/audit'")) throw new Error('Audit endpoint is missing')
+if (!backend.includes('parsePagination')) throw new Error('API pagination helper is missing')
+if (!backend.includes('safeDecode')) throw new Error('Cookie parser must fail closed on malformed encoding')
+if (!admin.includes("api('/api/audit?limit=20')")) throw new Error('Admin must load audit records')
+const analytics = fs.readFileSync('src/analytics.js','utf8')
+if (!analytics.includes('sendRemoteEvent')) throw new Error('Remote funnel analytics helper is missing')
+if (!analytics.includes('delete safe[key]')) throw new Error('Analytics sensitive-field stripping is missing')
 if (admin.includes('sessionStorage') || admin.includes('localStorage')) throw new Error('Admin must not store authentication state in browser storage')
 if (backend.includes("ADMIN_PASSWORD = process.env")) throw new Error('Do not support plaintext admin passwords')
 
