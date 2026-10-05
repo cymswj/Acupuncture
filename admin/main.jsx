@@ -56,6 +56,16 @@ function extractSettings(config = {}, overrides = {}) {
       email: source.contact?.email ?? config.contact?.email ?? '',
       telegramShareUrl: source.contact?.telegramShareUrl ?? config.contact?.telegramShareUrl ?? '',
     },
+    hospital: {
+      officialName: source.hospital?.officialName ?? config.hospital?.officialName ?? '',
+      ruName: source.hospital?.ruName ?? config.hospital?.ruName ?? '',
+      address: source.hospital?.address ?? config.hospital?.address ?? '',
+      phone: source.hospital?.phone ?? config.hospital?.phone ?? '',
+      website: source.hospital?.website ?? config.hospital?.website ?? '',
+      department: source.hospital?.department ?? config.hospital?.department ?? '',
+      sourceUrl: source.hospital?.sourceUrl ?? config.hospital?.sourceUrl ?? '',
+      lastVerified: source.hospital?.lastVerified ?? config.hospital?.lastVerified ?? '',
+    },
     seo: {
       defaultTitle: source.seo?.defaultTitle ?? config.seo?.defaultTitle ?? '',
       defaultDescription: source.seo?.defaultDescription ?? config.seo?.defaultDescription ?? '',
@@ -378,6 +388,18 @@ function App() {
             <p className="settingsHint">Telegram 二维码目前固定使用网站资产；如果更换 Telegram 账号，需要同步更换二维码文件。</p>
           </section>
           <section className="settingsGroup">
+            <h3>医院公开资料</h3>
+            <label><span>官方名称</span><input value={settingsDraft.hospital.officialName} onChange={e=>updateSettings('hospital','officialName',e.target.value)} /></label>
+            <label><span>俄语名称</span><input value={settingsDraft.hospital.ruName} onChange={e=>updateSettings('hospital','ruName',e.target.value)} /></label>
+            <label><span>地址</span><input value={settingsDraft.hospital.address} onChange={e=>updateSettings('hospital','address',e.target.value)} /></label>
+            <label><span>医院官方电话</span><input value={settingsDraft.hospital.phone} onChange={e=>updateSettings('hospital','phone',e.target.value)} /></label>
+            <label><span>医院官网</span><input value={settingsDraft.hospital.website} onChange={e=>updateSettings('hospital','website',e.target.value)} /></label>
+            <label><span>科室</span><input value={settingsDraft.hospital.department} onChange={e=>updateSettings('hospital','department',e.target.value)} /></label>
+            <label><span>信息来源页</span><input value={settingsDraft.hospital.sourceUrl} onChange={e=>updateSettings('hospital','sourceUrl',e.target.value)} /></label>
+            <label><span>最后核验日期</span><input type="date" value={settingsDraft.hospital.lastVerified} onChange={e=>updateSettings('hospital','lastVerified',e.target.value)} /></label>
+            <p className="settingsWarning">这里的信息会直接展示给患者。修改前请以医院官方来源重新核验；医生姓名、资质与出诊安排暂不在这里修改。</p>
+          </section>
+          <section className="settingsGroup">
             <h3>品牌</h3>
             <label><span>品牌名称</span><input value={settingsDraft.brand.name} onChange={e=>updateSettings('brand','name',e.target.value)} /></label>
             <label><span>品牌副标题</span><input value={settingsDraft.brand.legalLine} onChange={e=>updateSettings('brand','legalLine',e.target.value)} /></label>
@@ -389,7 +411,7 @@ function App() {
           <section className="settingsGroup settingsWide">
             <h3>俄语 SEO</h3>
             <div className="settingsTwo"><label><span>标题</span><input value={settingsDraft.seo.ru.title} onChange={e=>updateSeo('ru','title',e.target.value)} /></label><label><span>描述</span><textarea rows="3" value={settingsDraft.seo.ru.description} onChange={e=>updateSeo('ru','description',e.target.value)} /></label></div>
-            <p className="settingsHint">目前只让运营人员编辑安全的公开配置；管理员账号、API 地址、数据库、Cookie 和部署参数仍然由服务器环境管理。</p>
+            <p className="settingsHint">医院信息、品牌、联系方式与 SEO 属于公开运营配置；管理员账号、API 地址、数据库、Cookie 和部署参数仍然由服务器环境管理。</p>
             <div className="settingsBar"><span>{settingsUpdatedAt ? '最后更新：' + new Date(settingsUpdatedAt).toLocaleString('zh-CN') : '尚未保存到共享后台'}</span><button className="btn primary" onClick={saveSettings} disabled={settingsSaving}>{settingsSaving ? '保存中…' : '保存网站设置'}</button></div>
             {settingsMessage ? <p className="formMessage">{settingsMessage}</p> : null}
           </section>
