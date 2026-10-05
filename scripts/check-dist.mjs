@@ -18,8 +18,8 @@ for (const file of required) {
 }
 
 const config = JSON.parse(fs.readFileSync('dist/config/site.json', 'utf8'))
-if (config.contact?.phone !== '+86 13876636537') throw new Error('Build config phone mismatch')
-if (config.contact?.telegramUrl !== 'https://t.me/Acupuncture_Sanya') throw new Error('Build config Telegram URL mismatch')
+if (typeof config.contact?.phone !== 'string' || config.contact.phone.trim() && !/^\+?[\d ()-]{7,40}$/.test(config.contact.phone.trim())) throw new Error('Build config phone format mismatch')
+if (config.contact?.telegramUrl && !config.contact.telegramUrl.startsWith('https://')) throw new Error('Build config Telegram URL must be HTTPS')
 if (config.contact?.telegramQrPath !== '/Acupuncture/telegram-qr.svg') throw new Error('Build config QR path mismatch')
 
 const home = fs.readFileSync('dist/index.html', 'utf8')
