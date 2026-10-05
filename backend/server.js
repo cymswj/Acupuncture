@@ -408,9 +408,18 @@ const server = http.createServer(async (req, res) => {
             en: { ...currentSettings.seo?.en, ...(input.seo?.en || {}) },
           },
         })
-        if (!mergedSettings.brand.name) return json(res, 400, { error: 'brand name is required' })
-        if (!mergedSettings.hospital.officialName) return json(res, 400, { error: 'hospital official name is required' })
-        if (!mergedSettings.hospital.website) return json(res, 400, { error: 'hospital website is required' })
+        if (!mergedSettings.brand.name) {
+          await client.query('ROLLBACK')
+          return json(res, 400, { error: 'brand name is required' })
+        }
+        if (!mergedSettings.hospital.officialName) {
+          await client.query('ROLLBACK')
+          return json(res, 400, { error: 'hospital official name is required' })
+        }
+        if (!mergedSettings.hospital.website) {
+          await client.query('ROLLBACK')
+          return json(res, 400, { error: 'hospital website is required' })
+        }
         const result = await client.query(
           'INSERT INTO site_settings(id,settings,updated_at,updated_by) VALUES(TRUE,$1,NOW(),$2) ON CONFLICT(id) DO UPDATE SET settings=$1,updated_at=NOW(),updated_by=$2 RETURNING updated_at',
           [mergedSettings, session.username]
@@ -428,7 +437,6 @@ const server = http.createServer(async (req, res) => {
       } finally {
         client.release()
       }
-      savedSettings = savedSettings || cleanPublicSettings((await pool.query('SELECT settings FROM site_settings WHERE id=TRUE')).rows[0]?.settings || {})
       publicSettingsCache = { settings: savedSettings, updatedAt, expiresAt: Date.now() + 15000 }
       return json(res, 200, { ok: true, settings: savedSettings, updatedAt, updatedBy: session.username })
     }
