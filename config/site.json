@@ -4,8 +4,8 @@
     "legalLine": "International Patient Service"
   },
   "contact": {
-    "telegramUrl": "",
-    "telegramHandle": "",
+    "telegramUrl": "https://t.me/Acupuncture_Sanya",
+    "telegramHandle": "@Acupuncture_Sanya",
     "vkUrl": "",
     "whatsappUrl": "",
     "email": "",
@@ -13,7 +13,7 @@
     "phone": "+86 13876636537",
     "phoneUrl": "tel:+8613876636537",
     "phoneLabel": "Русскоязычная связь / 联系电话",
-    "telegramQrPath": "/Acupuncture/telegram-qr.jpg"
+    "telegramQrPath": "/Acupuncture/telegram-qr.svg"
   },
   "hospital": {
     "officialName": "三亚市中医院",
