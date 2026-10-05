@@ -386,8 +386,9 @@ const server = http.createServer(async (req, res) => {
         'INSERT INTO site_settings(id,settings,updated_at,updated_by) VALUES(TRUE,$1,NOW(),$2) ON CONFLICT(id) DO UPDATE SET settings=$1,updated_at=NOW(),updated_by=$2',
         [settings, session.username]
       )
-      await audit(session.username, 'settings_update', null, req, { sections: ['brand','contact','seo'] })
-      return json(res, 200, { ok: true, settings })
+      await audit(session.username, 'settings_update', null, req, { sections: ['brand','contact','hospital','seo'] })
+      const updatedAt = new Date().toISOString()
+      return json(res, 200, { ok: true, settings, updatedAt, updatedBy: session.username })
     }
 
     if (req.method === 'POST' && url.pathname === '/api/auth/logout') {
