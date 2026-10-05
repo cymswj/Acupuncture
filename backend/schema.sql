@@ -59,3 +59,10 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 CREATE INDEX IF NOT EXISTS idx_audit_logs_occurred_at ON audit_logs(occurred_at);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_username ON audit_logs(username);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_target_id ON audit_logs(target_id);
+
+CREATE TABLE IF NOT EXISTS site_settings (
+  id BOOLEAN PRIMARY KEY DEFAULT TRUE,
+  settings JSONB NOT NULL DEFAULT '{}'::jsonb,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_by TEXT
+);
