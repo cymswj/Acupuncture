@@ -355,7 +355,7 @@ const server = http.createServer(async (req, res) => {
       const username = String(input.username || '').trim()
       const password = String(input.password || '')
       if (!requestFromAllowedOrigin(req)) return json(res, 403, { error: 'origin not allowed' })
-      if (!ADMIN_PASSWORD_HASH || username !== ADMIN_USERNAME || !verifyPassword(password)) {
+      if (!ADMIN_PASSWORD_HASH || username !== ADMIN_USERNAME || !(await verifyPassword(password))) {
         recordFailedLogin(ip)
         return json(res, 401, { error: 'invalid credentials' })
       }
