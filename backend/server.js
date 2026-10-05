@@ -465,13 +465,15 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && url.pathname === '/api/auth/logout') {
       if (!requestFromAllowedOrigin(req)) return json(res, 403, { error: 'origin not allowed' })
-      const session = await requireAdmin(req)
       const cookies = parseCookies(req)
       const bearer = cookies[SESSION_COOKIE] || ''
+      clearSessionCookie(res)
+      let session = null
       try {
+        session = await requireAdmin(req)
         if (bearer) await pool.query('DELETE FROM admin_sessions WHERE token_hash=$1', [tokenHash(bearer)])
-      } finally {
-        clearSessionCookie(res)
+      } catch (error) {
+        console.error('Logout session cleanup failed', error)
       }
       if (session) {
         try {
