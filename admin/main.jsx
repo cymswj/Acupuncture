@@ -66,6 +66,10 @@ function extractSettings(config = {}, overrides = {}) {
       sourceUrl: source.hospital?.sourceUrl ?? config.hospital?.sourceUrl ?? '',
       lastVerified: source.hospital?.lastVerified ?? config.hospital?.lastVerified ?? '',
     },
+    legal: {
+      serviceOwner: source.legal?.serviceOwner ?? config.legal?.serviceOwner ?? '',
+      contactEmail: source.legal?.contactEmail ?? config.legal?.contactEmail ?? '',
+    },
     seo: {
       defaultTitle: source.seo?.defaultTitle ?? config.seo?.defaultTitle ?? '',
       defaultDescription: source.seo?.defaultDescription ?? config.seo?.defaultDescription ?? '',
@@ -487,6 +491,12 @@ function App() {
             <label><span>信息来源页</span><input value={settingsDraft.hospital.sourceUrl} onChange={e=>updateSettings('hospital','sourceUrl',e.target.value)} /></label>
             <label><span>最后核验日期</span><input type="date" value={settingsDraft.hospital.lastVerified} onChange={e=>updateSettings('hospital','lastVerified',e.target.value)} /></label>
             <p className="settingsWarning">这里的信息会直接展示给患者。修改前请以医院官方来源重新核验；医生姓名、资质与出诊安排暂不在这里修改。</p>
+          </section>
+          <section className="settingsGroup">
+            <h3>服务主体与法律联系</h3>
+            <label><span>服务主体</span><input value={settingsDraft.legal.serviceOwner} onChange={e=>updateSettings('legal','serviceOwner',e.target.value)} placeholder="填写真实服务主体/运营主体" /></label>
+            <label><span>官方联系邮箱</span><input type="email" value={settingsDraft.legal.contactEmail} onChange={e=>updateSettings('legal','contactEmail',e.target.value)} placeholder="name@example.com" /></label>
+            <p className="settingsWarning">请填写真实、可核验的信息。不要把医院名称写成独立服务主体。</p>
           </section>
           <section className="settingsGroup">
             <h3>品牌</h3>
