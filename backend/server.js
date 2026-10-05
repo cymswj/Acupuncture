@@ -358,11 +358,12 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && url.pathname === '/api/public-settings') {
+      if (!allowPublicRequest('public-settings', clientIp(req), 120, 15 * 60 * 1000)) return json(res, 429, { error: 'too many public settings requests' })
       if (publicSettingsCache.settings && Date.now() < publicSettingsCache.expiresAt) {
         return json(res, 200, { settings: publicSettingsCache.settings, updatedAt: publicSettingsCache.updatedAt })
       }
       const result = await pool.query('SELECT settings,updated_at FROM site_settings WHERE id=TRUE')
-      const settings = result.rows[0]?.settings || {}
+      const settings = cleanPublicSettings(result.rows[0]?.settings || {})
       const updatedAt = result.rows[0]?.updated_at || null
       publicSettingsCache = { settings, updatedAt, expiresAt: Date.now() + 15000 }
       return json(res, 200, { settings, updatedAt })
@@ -384,7 +385,8 @@ const server = http.createServer(async (req, res) => {
       if (!requestFromAllowedOrigin(req)) return json(res, 403, { error: 'origin not allowed' })
       const session = await requireAdmin(req)
       if (!session) return json(res, 401, { error: 'unauthorized' })
-      const settings = cleanPublicSettings(await readBody(req))
+      const input = await readBody(req)
+      const settings = cleanPublicSettings(input)
       if (!settings.brand.name) return json(res, 400, { error: 'brand name is required' })
       if (!settings.hospital.officialName) return json(res, 400, { error: 'hospital official name is required' })
       if (!settings.hospital.website) return json(res, 400, { error: 'hospital website is required' })
@@ -392,9 +394,25 @@ const server = http.createServer(async (req, res) => {
       let updatedAt
       try {
         await client.query('BEGIN')
+        const current = await client.query('SELECT settings FROM site_settings WHERE id=TRUE')
+        const currentSettings = cleanPublicSettings(current.rows[0]?.settings || {})
+        const mergedSettings = cleanPublicSettings({
+          ...currentSettings,
+          ...settings,
+          brand: { ...currentSettings.brand, ...settings.brand },
+          contact: { ...currentSettings.contact, ...settings.contact },
+          hospital: { ...currentSettings.hospital, ...settings.hospital },
+          seo: {
+            ...currentSettings.seo,
+            ...settings.seo,
+            ru: { ...currentSettings.seo?.ru, ...settings.seo?.ru },
+            zh: { ...currentSettings.seo?.zh, ...settings.seo?.zh },
+            en: { ...currentSettings.seo?.en, ...settings.seo?.en },
+          },
+        })
         const result = await client.query(
           'INSERT INTO site_settings(id,settings,updated_at,updated_by) VALUES(TRUE,$1,NOW(),$2) ON CONFLICT(id) DO UPDATE SET settings=$1,updated_at=NOW(),updated_by=$2 RETURNING updated_at',
-          [settings, session.username]
+          [mergedSettings, session.username]
         )
         updatedAt = result.rows[0]?.updated_at || new Date()
         await client.query(
@@ -408,8 +426,9 @@ const server = http.createServer(async (req, res) => {
       } finally {
         client.release()
       }
-      publicSettingsCache = { settings, updatedAt, expiresAt: Date.now() + 15000 }
-      return json(res, 200, { ok: true, settings, updatedAt, updatedBy: session.username })
+      const savedSettings = mergedSettings
+      publicSettingsCache = { settings: savedSettings, updatedAt, expiresAt: Date.now() + 15000 }
+      return json(res, 200, { ok: true, settings: savedSettings, updatedAt, updatedBy: session.username })
     }
 
     if (req.method === 'POST' && url.pathname === '/api/auth/logout') {
