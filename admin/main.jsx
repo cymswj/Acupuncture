@@ -271,6 +271,8 @@ function App() {
   }
 
   function moveLocal(id, next) {
+    const current = leads.find(item => item.id === id)
+    if (!current || current.stage === next) return
     updateLead(id, { stage: next })
     trackEvent('lead_stage_changed', { stage: next })
     const eventByStage = { confirmed: 'appointment_confirmed', visited: 'visit_completed', followup: 'followup_completed' }
@@ -278,33 +280,12 @@ function App() {
     setLeads(listLeads())
   }
 
-  async function moveRemote(id, next, extra = {}, lead = null) {
+  async function moveRemote(id, next, extra = {}) {
     try {
       await api('/api/leads/' + encodeURIComponent(id), {
         method: 'PATCH',
         body: JSON.stringify({ stage: next, ...extra }),
       })
-      const eventByStage = {
-        confirmed: 'appointment_confirmed',
-        visited: 'visit_completed',
-        followup: 'followup_completed',
-      }
-      const eventName = eventByStage[next]
-      if (eventName) {
-        try {
-          await api('/api/events', {
-            method: 'POST',
-            body: JSON.stringify({
-              eventName,
-              path: '/admin/',
-              language: lead?.language || 'zh',
-              source: lead?.source || 'direct',
-              medium: lead?.medium || '',
-              campaign: lead?.campaign || '',
-            }),
-          })
-        } catch {}
-      }
       await refreshRemote()
     } catch {
       setAuthMessage('更新线索失败。')
