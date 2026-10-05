@@ -75,7 +75,7 @@ for (const file of ['backend/server.js','backend/hash-password.mjs']) {
   const syntax = spawnSync(process.execPath, ['--check', file], { encoding: 'utf8' })
   if (syntax.status !== 0) throw new Error(`${file} syntax check failed: ${syntax.stderr || syntax.stdout}`)
 }
-for (const textValue of ['/api/auth/login','/api/auth/me','/api/auth/logout','/api/dashboard']) {
+for (const textValue of ['/api/auth/login','/api/auth/me','/api/auth/logout','/api/dashboard','/api/settings','/api/public-settings']) {
   if (!backend.includes(textValue)) throw new Error('Backend is missing ' + textValue)
 }
 if (!backend.includes('timingSafeEqual')) throw new Error('Password verification must use timingSafeEqual')
@@ -85,9 +85,14 @@ if (!backend.includes('createLeadId')) throw new Error('Server-generated Lead ID
 if (!backend.includes('HttpOnly')) throw new Error('HttpOnly session cookie is missing')
 if (!backend.includes('Access-Control-Allow-Credentials')) throw new Error('credentialed CORS support is missing')
 if (!backend.includes("url.pathname === '/api/audit'")) throw new Error('Audit endpoint is missing')
+if (!backend.includes("url.pathname === '/api/public-settings'")) throw new Error('Public settings endpoint is missing')
+if (!backend.includes("url.pathname === '/api/settings'")) throw new Error('Admin settings endpoint is missing')
+if (!backend.includes('site_settings')) throw new Error('Persistent site settings table is missing')
 if (!backend.includes('parsePagination')) throw new Error('API pagination helper is missing')
 if (!backend.includes('safeDecode')) throw new Error('Cookie parser must fail closed on malformed encoding')
 if (!admin.includes("api('/api/audit?limit=20')")) throw new Error('Admin must load audit records')
+if (!admin.includes("api('/api/settings')")) throw new Error('Admin settings API is missing')
+if (!admin.includes('网站设置')) throw new Error('Admin settings UI is missing')
 const analytics = fs.readFileSync('src/analytics.js','utf8')
 if (!analytics.includes('sendRemoteEvent')) throw new Error('Remote funnel analytics helper is missing')
 if (!analytics.includes('delete safe[key]')) throw new Error('Analytics sensitive-field stripping is missing')
