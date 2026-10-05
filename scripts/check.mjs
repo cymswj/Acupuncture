@@ -86,7 +86,7 @@ if (!backend.includes('Access-Control-Allow-Credentials')) throw new Error('cred
 if (!backend.includes("'GET,POST,PUT,PATCH,OPTIONS'")) throw new Error('CORS must allow website settings PUT')
 if (!backend.includes("allowPublicRequest('public-settings'")) throw new Error('Public settings endpoint must be rate limited')
 if (!backend.includes("'lead_created'" ) || !backend.includes("'appointment_requested'" ) || !backend.includes("await client.query('BEGIN')")) throw new Error('Lead creation must record initial funnel events transactionally')
-if (!source.includes('if (!remoteLead)')) throw new Error('Frontend must avoid duplicate remote lead funnel events')
+if (!source.includes('const remoteLead = Boolean(leadApiUrl)')) throw new Error('Frontend remote lead mode is missing')
 if (!source.includes('activeDoctors')) throw new Error('Frontend must support multiple verified doctors')
 const qrSvg = fs.readFileSync('public/telegram-qr.svg','utf8')
 if (qrSvg.length < 2000 || !qrSvg.includes('<svg') || !qrSvg.includes('viewBox')) throw new Error('Telegram QR asset looks incomplete')
