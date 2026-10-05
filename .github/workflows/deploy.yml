@@ -39,6 +39,9 @@ jobs:
         working-directory: backend
         run: npm ci --no-audit --no-fund && npm audit --audit-level=high
 
+      - name: Build API container
+        run: docker build --pull -t sanya-tcm-api:ci backend
+
       - name: Build
         run: npm run build
 
