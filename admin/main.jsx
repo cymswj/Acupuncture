@@ -417,8 +417,12 @@ function App() {
       }
       const normalizedRows = rows.map(normalizeLead)
       const headers = ['id','createdAt','updatedAt','stage','source','medium','campaign','language','name','contact','preferredDate','service','appointmentDate','visitDate','followupDate','valueCny','owner']
-      const esc = value => '"' + String(value ?? '').replace(/"/g, '""') + '"'
-      const csv = [headers.join(','), ...normalizedRows.map(row => headers.map(header => esc(row[header])).join(','))].join('\n')
+      const safeCell = value => {
+        const text = String(value ?? '')
+        const protectedText = /^[=+\-@]/.test(text.trimStart()) ? "'" + text : text
+        return '"' + protectedText.replace(/"/g, '""') + '"'
+      }
+      const csv = [headers.join(','), ...normalizedRows.map(row => headers.map(header => safeCell(row[header])).join(','))].join('\n')
       const blob = new Blob([csv], {type:'text/csv;charset=utf-8'})
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
