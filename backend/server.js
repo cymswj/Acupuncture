@@ -360,7 +360,6 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && url.pathname === '/api/public-settings') {
-      if (!allowPublicRequest('public-settings', clientIp(req), 120, 15 * 60 * 1000)) return json(res, 429, { error: 'too many requests' })
       const result = await pool.query('SELECT settings,updated_at FROM site_settings WHERE id=TRUE')
       return json(res, 200, { settings: result.rows[0]?.settings || {}, updatedAt: result.rows[0]?.updated_at || null })
     }
