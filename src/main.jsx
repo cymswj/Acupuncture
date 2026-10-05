@@ -341,7 +341,7 @@ function App() {
   }, [lang, t.formServiceOptions])
 
   const hospital = config.hospital
-  const activeDoctor = config.doctors?.find(d => d.enabled === true)
+  const activeDoctors = Array.isArray(config.doctors) ? config.doctors.filter(d => d.enabled === true) : []
   const telegramUrl = config.contact?.telegramUrl || ''
   const telegramHandle = config.contact?.telegramHandle || ''
   const telegramShareUrl = config.contact?.telegramShareUrl || ''
@@ -483,7 +483,7 @@ function App() {
         <ul>{t.hospitalPoints.map(x=><li key={x}>✓ <span>{x}</span></li>)}</ul>
       </div></section>
 
-      <section className="section" id="doctor"><div className="container doctorSection"><div><div className="kicker">03 · DOCTOR</div><h2>{t.doctorTitle}</h2></div>{activeDoctor ? <article className="doctorCard"><div className="doctorAvatar">{activeDoctor.name?.slice(0,1) || '医'}</div><div><h3>{activeDoctor.name}</h3><p className="doctorRole">{activeDoctor.title || ''}</p><p>{activeDoctor.specialty || ''}</p>{activeDoctor.languages?.length ? <div className="doctorTags">{activeDoctor.languages.map(x=><span key={x}>{x}</span>)}</div> : null}<small>{activeDoctor.credentials || ''}</small></div></article> : <div className="emptyCard">{t.doctorEmpty}</div>}</div></section>
+      <section className="section" id="doctor"><div className="container doctorSection"><div><div className="kicker">03 · DOCTOR</div><h2>{t.doctorTitle}</h2></div>{activeDoctors.length ? <div className="doctorList">{activeDoctors.map(doctor=><article className="doctorCard" key={doctor.id || doctor.name}><div className="doctorAvatar">{doctor.name?.slice(0,1) || '医'}</div><div><h3>{doctor.name}</h3><p className="doctorRole">{doctor.title || ''}</p><p>{doctor.specialty || ''}</p>{doctor.languages?.length ? <div className="doctorTags">{doctor.languages.map(x=><span key={x}>{x}</span>)}</div> : null}<small>{doctor.credentials || ''}</small></div></article>)}</div> : <div className="emptyCard">{t.doctorEmpty}</div>}</div></section>
 
       <section className="section" id="process"><div className="container"><div className="kicker">04 · PROCESS</div><h2>{t.processTitle}</h2><div className="steps">{t.process.map((p,i)=><article key={p[0]}><div className="stepNo">0{i+1}</div><h3>{p[0]}</h3><p>{p[1]}</p></article>)}</div></div></section>
 
