@@ -106,7 +106,13 @@ function App() {
   const [settingsUpdatedAt, setSettingsUpdatedAt] = useState('')
   const [settingsMessage, setSettingsMessage] = useState('')
   const [settingsSaving, setSettingsSaving] = useState(false)
+  const [leadSearchInput, setLeadSearchInput] = useState('')
+  const [leadSearch, setLeadSearch] = useState('')
+  const [remotePage, setRemotePage] = useState(0)
+  const [remoteTotal, setRemoteTotal] = useState(0)
   const [loading, setLoading] = useState(false)
+  const PAGE_SIZE = 50
+  const maxExport = 5000
 
   useEffect(() => {
     fetch(`${import.meta.env.BASE_URL}config/site.json`, { cache: 'no-store' })
@@ -188,8 +194,19 @@ function App() {
   async function refreshRemote() {
     setLoading(true)
     try {
-      const [leadData, dashboardData, auditData, settingsData] = await Promise.all([api('/api/leads'), api('/api/dashboard'), api('/api/audit?limit=20'), api('/api/settings')])
+      const params = new URLSearchParams()
+      params.set('limit', String(PAGE_SIZE))
+      params.set('offset', String(remotePage * PAGE_SIZE))
+      if (stage) params.set('stage', stage)
+      if (leadSearch) params.set('q', leadSearch)
+      const [leadData, dashboardData, auditData, settingsData] = await Promise.all([
+        api('/api/leads?' + params.toString()),
+        api('/api/dashboard'),
+        api('/api/audit?limit=20'),
+        api('/api/settings'),
+      ])
       setLeads((leadData.leads || []).map(normalizeLead))
+      setRemoteTotal(Number(leadData.total || 0))
       setDashboard(dashboardData)
       setAuditLogs(auditData.logs || [])
       setSettingsDraft(extractSettings(config, settingsData.settings || {}))
@@ -213,7 +230,7 @@ function App() {
 
   useEffect(() => {
     if (remoteMode && authChecked && authenticated) refreshRemote()
-  }, [remoteMode, authChecked, authenticated])
+  }, [remoteMode, authChecked, authenticated, remotePage, stage, leadSearch])
 
   const localStats = useMemo(() => {
     const sources = {}
@@ -239,8 +256,19 @@ function App() {
     events: remoteStats.events || 0,
   } : localStats
 
-  const filtered = useMemo(() => stage ? leads.filter(x => x.stage === stage) : leads, [leads, stage])
+  const filtered = useMemo(() => remoteMode ? leads : (stage ? leads.filter(x => x.stage === stage) : leads), [remoteMode, leads, stage])
   const remoteStageCount = s => dashboard?.stageCounts?.[s] || 0
+
+  function applyLeadSearch(e) {
+    e?.preventDefault?.()
+    setRemotePage(0)
+    setLeadSearch(String(leadSearchInput || '').trim().slice(0, 120))
+  }
+
+  function changeStage(next) {
+    setStage(next)
+    setRemotePage(0)
+  }
 
   function moveLocal(id, next) {
     updateLead(id, { stage: next })
@@ -344,7 +372,8 @@ function App() {
     }))
   }
 
-  function download() {
+  async function download() {
+    setAuthMessage('')
     if (!remoteMode) {
       const blob = new Blob([exportLeadsCsv()], {type:'text/csv;charset=utf-8'})
       const url = URL.createObjectURL(blob)
@@ -356,18 +385,41 @@ function App() {
       return
     }
 
-    const headers = ['id','createdAt','updatedAt','stage','source','medium','campaign','language','name','contact','preferredDate','service','appointmentDate','visitDate','followupDate','valueCny','owner']
-    const esc = value => '"' + String(value ?? '').replace(/"/g, '""') + '"'
-    const csv = [headers.join(','), ...leads.map(row => headers.map(header => esc(row[header])).join(','))].join('\\n')
-    const blob = new Blob([csv], {type:'text/csv;charset=utf-8'})
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'sanya-tcm-leads.csv'
-    a.click()
-    URL.revokeObjectURL(url)
+    setLoading(true)
+    try {
+      const totalToExport = Math.min(remoteTotal, maxExport)
+      const rows = []
+      for (let offset = 0; offset < totalToExport; offset += PAGE_SIZE) {
+        const params = new URLSearchParams()
+        params.set('limit', String(Math.min(PAGE_SIZE, totalToExport - offset)))
+        params.set('offset', String(offset))
+        if (stage) params.set('stage', stage)
+        if (leadSearch) params.set('q', leadSearch)
+        const data = await api('/api/leads?' + params.toString())
+        rows.push(...(data.leads || []))
+      }
+      const normalizedRows = rows.map(normalizeLead)
+      const headers = ['id','createdAt','updatedAt','stage','source','medium','campaign','language','name','contact','preferredDate','service','appointmentDate','visitDate','followupDate','valueCny','owner']
+      const esc = value => '"' + String(value ?? '').replace(/"/g, '""') + '"'
+      const csv = [headers.join(','), ...normalizedRows.map(row => headers.map(header => esc(row[header])).join(','))].join('\n')
+      const blob = new Blob([csv], {type:'text/csv;charset=utf-8'})
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'sanya-tcm-leads.csv'
+      a.click()
+      URL.revokeObjectURL(url)
+      if (remoteTotal > maxExport) setAuthMessage('数据量超过单次导出上限，已导出前 ' + maxExport + ' 条。可先按阶段或关键词筛选后分别导出。')
+    } catch (error) {
+      if (error.status === 401) {
+        setAuthenticated(false)
+        setUsername('')
+      }
+      setAuthMessage('导出失败，请重试。')
+    } finally {
+      setLoading(false)
+    }
   }
-
   if (configError) return <div className="adminPage"><div className="adminShell"><div className="emptyCard">{configError} 请刷新页面重试。</div></div></div>
   if (!config) return <div className="adminPage"><div className="adminShell"><div className="emptyCard">正在加载后台配置…</div></div></div>
 
