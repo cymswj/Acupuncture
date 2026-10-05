@@ -91,6 +91,13 @@
       const contact = config.contact || {}
       const hospital = config.hospital || {}
       const legal = config.legal || {}
+      document.querySelectorAll('.seoFooterBrand').forEach(node => {
+        const textNode = Array.from(node.childNodes).find(child => child.nodeType === Node.TEXT_NODE)
+        if (textNode && config.brand?.name) textNode.nodeValue = config.brand.name
+      })
+      document.querySelectorAll('.seoFooterBottom span:first-child').forEach(node => {
+        if (config.brand?.name) node.textContent = '© 2026 ' + config.brand.name
+      })
       const phone = String(contact.phone || '').trim()
       const phoneUrl = contact.phoneUrl || (phone ? 'tel:' + phone.replace(/[^\d+]/g, '') : '')
       const telegramUrl = String(contact.telegramUrl || '').trim()
