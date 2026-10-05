@@ -1,5 +1,6 @@
 (() => {
-  const base = '/Acupuncture/'
+  const script = document.currentScript
+  const base = script?.src ? script.src.replace(/\/seo-runtime\.js(?:\?.*)?$/, '/') : '/Acupuncture/'
   const merge = (baseConfig, next) => ({
     ...baseConfig,
     brand: { ...baseConfig.brand, ...(next.brand || {}) },
