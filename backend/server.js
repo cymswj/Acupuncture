@@ -273,6 +273,7 @@ function cleanPublicSettings(input = {}) {
   const zh = seo.zh && typeof seo.zh === 'object' ? seo.zh : {}
   const en = seo.en && typeof seo.en === 'object' ? seo.en : {}
   const hospital = source.hospital && typeof source.hospital === 'object' ? source.hospital : {}
+  const legal = source.legal && typeof source.legal === 'object' ? source.legal : {}
 
   return {
     brand: {
@@ -299,6 +300,10 @@ function cleanPublicSettings(input = {}) {
       department: String(hospital.department || '').trim().slice(0, 120),
       sourceUrl: cleanHttpsUrl(hospital.sourceUrl),
       lastVerified: /^\d{4}-\d{2}-\d{2}$/.test(String(hospital.lastVerified || '')) ? hospital.lastVerified : '',
+    },
+    legal: {
+      serviceOwner: String(legal.serviceOwner || '').trim().slice(0, 200),
+      contactEmail: cleanEmail(legal.contactEmail),
     },
     seo: {
       defaultTitle: String(seo.defaultTitle || '').trim().slice(0, 180),
