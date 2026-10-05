@@ -288,6 +288,7 @@ function App() {
           brand: { ...prev.brand, ...(next.brand || {}) },
           contact: { ...prev.contact, ...(next.contact || {}) },
           hospital: { ...prev.hospital, ...(next.hospital || {}) },
+          legal: { ...prev.legal, ...(next.legal || {}) },
           doctors: Array.isArray(next.doctors) ? next.doctors : prev.doctors,
           pricing: { ...prev.pricing, ...(next.pricing || {}) },
           seo: {
