@@ -386,35 +386,37 @@ const server = http.createServer(async (req, res) => {
       const session = await requireAdmin(req)
       if (!session) return json(res, 401, { error: 'unauthorized' })
       const input = await readBody(req)
-      const settings = cleanPublicSettings(input)
-      if (!settings.brand.name) return json(res, 400, { error: 'brand name is required' })
-      if (!settings.hospital.officialName) return json(res, 400, { error: 'hospital official name is required' })
-      if (!settings.hospital.website) return json(res, 400, { error: 'hospital website is required' })
+      if (!input || typeof input !== 'object' || Array.isArray(input)) return json(res, 400, { error: 'invalid settings payload' })
       const client = await pool.connect()
       let updatedAt
+      let savedSettings
       try {
         await client.query('BEGIN')
-        const current = await client.query('SELECT settings FROM site_settings WHERE id=TRUE')
+        const current = await client.query('SELECT settings FROM site_settings WHERE id=TRUE FOR UPDATE')
         const currentSettings = cleanPublicSettings(current.rows[0]?.settings || {})
         const mergedSettings = cleanPublicSettings({
           ...currentSettings,
-          ...settings,
-          brand: { ...currentSettings.brand, ...settings.brand },
-          contact: { ...currentSettings.contact, ...settings.contact },
-          hospital: { ...currentSettings.hospital, ...settings.hospital },
+          ...input,
+          brand: { ...currentSettings.brand, ...(input.brand || {}) },
+          contact: { ...currentSettings.contact, ...(input.contact || {}) },
+          hospital: { ...currentSettings.hospital, ...(input.hospital || {}) },
           seo: {
             ...currentSettings.seo,
-            ...settings.seo,
-            ru: { ...currentSettings.seo?.ru, ...settings.seo?.ru },
-            zh: { ...currentSettings.seo?.zh, ...settings.seo?.zh },
-            en: { ...currentSettings.seo?.en, ...settings.seo?.en },
+            ...(input.seo || {}),
+            ru: { ...currentSettings.seo?.ru, ...(input.seo?.ru || {}) },
+            zh: { ...currentSettings.seo?.zh, ...(input.seo?.zh || {}) },
+            en: { ...currentSettings.seo?.en, ...(input.seo?.en || {}) },
           },
         })
+        if (!mergedSettings.brand.name) return json(res, 400, { error: 'brand name is required' })
+        if (!mergedSettings.hospital.officialName) return json(res, 400, { error: 'hospital official name is required' })
+        if (!mergedSettings.hospital.website) return json(res, 400, { error: 'hospital website is required' })
         const result = await client.query(
           'INSERT INTO site_settings(id,settings,updated_at,updated_by) VALUES(TRUE,$1,NOW(),$2) ON CONFLICT(id) DO UPDATE SET settings=$1,updated_at=NOW(),updated_by=$2 RETURNING updated_at',
           [mergedSettings, session.username]
         )
         updatedAt = result.rows[0]?.updated_at || new Date()
+        savedSettings = mergedSettings
         await client.query(
           'INSERT INTO audit_logs(username,action,target_id,ip,metadata) VALUES($1,$2,$3,$4,$5)',
           [session.username, 'settings_update', null, clientIp(req), { sections: ['brand','contact','hospital','seo'] }]
@@ -426,7 +428,7 @@ const server = http.createServer(async (req, res) => {
       } finally {
         client.release()
       }
-      const savedSettings = mergedSettings
+      savedSettings = savedSettings || cleanPublicSettings((await pool.query('SELECT settings FROM site_settings WHERE id=TRUE')).rows[0]?.settings || {})
       publicSettingsCache = { settings: savedSettings, updatedAt, expiresAt: Date.now() + 15000 }
       return json(res, 200, { ok: true, settings: savedSettings, updatedAt, updatedBy: session.username })
     }
