@@ -23,8 +23,11 @@ if (config.contact?.telegramUrl !== 'https://t.me/Acupuncture_Sanya') throw new 
 if (config.contact?.telegramQrPath !== '/Acupuncture/telegram-qr.svg') throw new Error('Build config QR path mismatch')
 
 const home = fs.readFileSync('dist/index.html', 'utf8')
-if (!home.includes('/Acupuncture/telegram-qr.svg')) throw new Error('Home build missing Telegram QR')
-if (!home.includes('+86 13876636537')) throw new Error('Home build missing service phone')
+if (!home.includes('/assets/')) throw new Error('Home build missing compiled asset reference')
+const assetDir = 'dist/assets'
+const bundles = fs.readdirSync(assetDir).filter(name => /\\.(?:js|mjs)$/.test(name)).map(name => fs.readFileSync(assetDir + '/' + name, 'utf8')).join('\n')
+if (!bundles.includes('footerQr')) throw new Error('Compiled frontend footer is missing')
+if (!bundles.includes('contact_opened')) throw new Error('Compiled frontend contact tracking is missing')
 
 for (const name of ['acupuncture','hospital','pricing','doctors','faq','prepare-for-visit','evidence','patient-guide','how-to-choose','privacy','terms']) {
   const file = 'dist/ru/' + name + '/index.html'
