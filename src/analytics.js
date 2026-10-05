@@ -8,26 +8,49 @@ function getStoredEvents() {
   }
 }
 
-export function trackEvent(name, properties = {}) {
+function sanitizeProperties(properties = {}) {
+  const safe = { ...properties }
+  for (const key of ['note','message','diagnosis','medicalRecords','patientName','phone','telegram','contact','email','address','ip','userId']) {
+    delete safe[key]
+  }
+  return safe
+}
+
+function sendRemoteEvent(name, safe, options = {}) {
+  const remoteUrl = String(options.remoteUrl || '')
+  if (!remoteUrl) return
+  const payload = {
+    eventName: name,
+    path: safe.path,
+    language: safe.language,
+    source: safe.source,
+    medium: safe.medium,
+    campaign: safe.campaign,
+  }
+  fetch(remoteUrl, {
+    method: options.method || 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    keepalive: true,
+  }).catch(() => {})
+}
+
+export function trackEvent(name, properties = {}, options = {}) {
   const safe = {
     name,
     timestamp: new Date().toISOString(),
     path: window.location.pathname,
     language: document.documentElement.lang || 'ru',
-    ...properties,
+    ...sanitizeProperties(properties),
   }
-  delete safe.note
-  delete safe.message
-  delete safe.diagnosis
-  delete safe.medicalRecords
-  delete safe.patientName
-  delete safe.phone
-  delete safe.telegram
+
   try {
     const events = getStoredEvents()
     events.push(safe)
     localStorage.setItem(STORAGE_KEY, JSON.stringify(events.slice(-500)))
   } catch {}
+
+  sendRemoteEvent(name, safe, options)
   return safe
 }
 
