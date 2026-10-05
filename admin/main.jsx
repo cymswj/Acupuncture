@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { LEAD_STAGES, listLeads, saveLead, updateLead, deleteLead, exportLeadsCsv } from '../src/crm.js'
 import { trackEvent, readEvents } from '../src/analytics.js'
@@ -111,6 +111,7 @@ function App() {
   const [remotePage, setRemotePage] = useState(0)
   const [remoteTotal, setRemoteTotal] = useState(0)
   const [loading, setLoading] = useState(false)
+  const refreshRequestRef = useRef(0)
   const PAGE_SIZE = 50
   const maxExport = 5000
 
@@ -188,10 +189,16 @@ function App() {
     setAuthenticated(false)
     setLeads([])
     setDashboard(null)
+    setRemoteTotal(0)
+    setRemotePage(0)
+    setLeadSearchInput('')
+    setLeadSearch('')
+    setStage('')
     setUsername('')
   }
 
   async function refreshRemote() {
+    const requestId = ++refreshRequestRef.current
     setLoading(true)
     try {
       const params = new URLSearchParams()
@@ -205,6 +212,7 @@ function App() {
         api('/api/audit?limit=20'),
         api('/api/settings'),
       ])
+      if (requestId !== refreshRequestRef.current) return
       setLeads((leadData.leads || []).map(normalizeLead))
       setRemoteTotal(Number(leadData.total || 0))
       setDashboard(dashboardData)
