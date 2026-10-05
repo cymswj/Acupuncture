@@ -216,6 +216,8 @@ C. 后端：
 - Audit logs
 - Audit log query UI
 - Leads pagination / filtering API
+- Persistent site settings
+- Public settings override for the static frontend
 
 D. 平台化：
 - 多医院
@@ -256,6 +258,10 @@ React/Vite 多页面结构适合当前“营销首页 + SEO 专题页 + Admin”
 8. Russian SEO 页 canonical 统一为目录 URL。
 9. Admin 从 robots 中排除。
 10. CI 增加运行时配置、后台路由、后端语法和关键安全检查。
+
+### 网站运营后台设计原则
+
+网站设置与 CRM 分离。运营人员可以维护公开联系方式、品牌、医院公开资料和 SEO；管理员账号、数据库、API 地址、Cookie、安全策略等基础设施配置继续由服务器环境维护。医院资料变更需要重新核验来源，医生资质和出诊安排不通过普通网站设置直接修改。
 
 ### 当前仍未进入正式生产的部分
 
