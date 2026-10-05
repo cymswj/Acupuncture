@@ -37,6 +37,29 @@
     node.setAttribute('content', content)
   }
 
+  function sendRemoteEvent(name, config, properties = {}) {
+    const baseApi = config.adminApi?.enabled && config.adminApi.baseUrl ? config.adminApi.baseUrl.replace(/\/$/, '') : ''
+    const analyticsUrl = config.analyticsApi?.enabled && config.analyticsApi.url
+      ? config.analyticsApi.url
+      : (baseApi ? baseApi + '/api/events' : '')
+    if (!analyticsUrl) return
+    const payload = {
+      eventName: name,
+      path: window.location.pathname,
+      language: document.documentElement.lang || 'ru',
+      source: new URLSearchParams(window.location.search).get('utm_source') || 'seo',
+      medium: new URLSearchParams(window.location.search).get('utm_medium') || 'organic',
+      campaign: new URLSearchParams(window.location.search).get('utm_campaign') || '',
+      ...properties,
+    }
+    fetch(analyticsUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      keepalive: true,
+    }).catch(() => {})
+  }
+
   async function load() {
     try {
       const configResponse = await fetch(base + 'config/site.json', { cache: 'no-store' })
@@ -74,10 +97,14 @@
       const telegramHandle = String(contact.telegramHandle || 'Telegram').trim()
       const qrPath = contact.telegramQrPath || base + 'telegram-qr.svg'
 
+      sendRemoteEvent('page_view', config)
       document.querySelectorAll('[data-service-phone]').forEach(node => {
         if (!phone) return
         node.textContent = phone
-        if (node.tagName === 'A') node.href = phoneUrl
+        if (node.tagName === 'A') {
+          node.href = phoneUrl
+          node.addEventListener('click', () => sendRemoteEvent('contact_opened', config, { channel: 'phone', placement: 'seo_footer' }), { once: true })
+        }
       })
       document.querySelectorAll('[data-service-telegram]').forEach(node => {
         if (!telegramUrl) {
@@ -90,6 +117,7 @@
           node.href = telegramUrl
           node.target = '_blank'
           node.rel = 'noreferrer'
+          node.addEventListener('click', () => sendRemoteEvent('contact_opened', config, { channel: 'telegram', placement: 'seo_footer' }), { once: true })
         }
       })
       document.querySelectorAll('[data-service-qr]').forEach(node => {
@@ -110,6 +138,7 @@
           node.href = telegramUrl
           node.target = '_blank'
           node.rel = 'noreferrer'
+          node.addEventListener('click', () => sendRemoteEvent('contact_opened', config, { channel: 'telegram_qr', placement: 'seo_footer' }), { once: true })
         }
       })
       document.querySelectorAll('[data-hospital-name]').forEach(node => {
