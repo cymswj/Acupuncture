@@ -36,6 +36,7 @@ for (const name of ['acupuncture','hospital','pricing','doctors','faq','prepare-
   if (!page.includes('class="seoFooter"')) throw new Error('SEO footer missing: ' + name)
   if (servicePhoneDigits && !page.includes(servicePhoneDigits)) throw new Error('SEO footer phone missing: ' + name)
   if (!page.includes('telegram-qr.svg')) throw new Error('SEO footer QR missing: ' + name)
+  if (!page.includes('seo-runtime.js')) throw new Error('SEO runtime bridge missing: ' + name)
   if (page.includes('https://cymswj.github.io/Acupuncture/ru/' + name + '/index.html')) {
     throw new Error('JSON-LD/canonical path still uses index.html: ' + name)
   }
