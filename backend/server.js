@@ -232,7 +232,7 @@ function parsePagination(url, defaultLimit = 100, maxLimit = 500) {
 }
 function cleanOptionalDate(value) {
   const candidate = String(value || '').trim()
-  return /^\d{4}-\d{2}-\d{2}$/.test(candidate) ? candidate : null
+  return isValidIsoDate(candidate) ? candidate : null
 }
 function cleanOptionalValue(value) {
   if (value === '' || value == null) return null
