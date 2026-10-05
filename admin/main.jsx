@@ -244,7 +244,7 @@ function App() {
         setAuthMessage('后台数据读取失败，请检查 API 和数据库。')
       }
     } finally {
-      setLoading(false)
+      if (requestId === refreshRequestRef.current) setLoading(false)
     }
   }
 
