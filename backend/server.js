@@ -520,9 +520,11 @@ const server = http.createServer(async (req, res) => {
       const input = await readBody(req)
       const eventName = String(input.eventName || '').slice(0, 80)
       if (!publicEvents.has(eventName)) return json(res, 400, { error: 'unsupported event' })
+      const language = String(input.language || 'ru').trim().slice(0, 16)
+      if (!['ru', 'zh', 'en'].includes(language)) return json(res, 400, { error: 'unsupported language' })
       await pool.query(
         'INSERT INTO funnel_events(event_name,path,language,source,medium,campaign) VALUES($1,$2,$3,$4,$5,$6)',
-        [eventName,String(input.path || '').slice(0,200),String(input.language || '').slice(0,16),String(input.source || '').slice(0,80),String(input.medium || '').slice(0,80),String(input.campaign || '').slice(0,120)]
+        [eventName,String(input.path || '').slice(0,200),language,String(input.source || '').slice(0,80),String(input.medium || '').slice(0,80),String(input.campaign || '').slice(0,120)]
       )
       return json(res, 201, { ok: true })
     }
@@ -601,10 +603,20 @@ const server = http.createServer(async (req, res) => {
       if (!requestFromAllowedOrigin(req)) return json(res, 403, { error: 'origin not allowed' })
       const session = await requireAdmin(req)
       if (!session) return json(res, 401, { error: 'unauthorized' })
-      const id = decodeURIComponent(url.pathname.slice('/api/leads/'.length))
+      let id
+      try {
+        id = decodeURIComponent(url.pathname.slice('/api/leads/'.length))
+      } catch {
+        return json(res, 400, { error: 'invalid lead id' })
+      }
+      if (!id || id.length > 200) return json(res, 400, { error: 'invalid lead id' })
       const input = await readBody(req)
       const stage = String(input.stage || '')
       if (!stages.has(stage)) return json(res, 400, { error: 'invalid stage' })
+      const invalidOptionalDate = ['appointmentDate','visitDate','followupDate'].some(key => Object.prototype.hasOwnProperty.call(input, key) && input[key] !== '' && input[key] != null && !isValidIsoDate(input[key]))
+      if (invalidOptionalDate) return json(res, 400, { error: 'invalid date field' })
+      const invalidValue = Object.prototype.hasOwnProperty.call(input, 'valueCny') && input.valueCny !== '' && input.valueCny != null && cleanOptionalValue(input.valueCny) == null
+      if (invalidValue) return json(res, 400, { error: 'invalid valueCny' })
       const client = await pool.connect()
       let previousStage = null
       let leadSnapshot = null
