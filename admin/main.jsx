@@ -197,6 +197,21 @@ function App() {
     setUsername('')
   }
 
+  async function loadRemoteSettings() {
+    try {
+      const settingsData = await api('/api/settings')
+      setSettingsDraft(extractSettings(config, settingsData.settings || {}))
+      setSettingsUpdatedAt(settingsData.updatedAt || '')
+    } catch (error) {
+      if (error.status === 401) {
+        setAuthenticated(false)
+        setUsername('')
+      } else {
+        setSettingsMessage('网站设置读取失败，请检查 API 和登录状态。')
+      }
+    }
+  }
+
   async function refreshRemote() {
     const requestId = ++refreshRequestRef.current
     setLoading(true)
@@ -206,19 +221,16 @@ function App() {
       params.set('offset', String(remotePage * PAGE_SIZE))
       if (stage) params.set('stage', stage)
       if (leadSearch) params.set('q', leadSearch)
-      const [leadData, dashboardData, auditData, settingsData] = await Promise.all([
+      const [leadData, dashboardData, auditData] = await Promise.all([
         api('/api/leads?' + params.toString()),
         api('/api/dashboard'),
         api('/api/audit?limit=20'),
-        api('/api/settings'),
       ])
       if (requestId !== refreshRequestRef.current) return
       setLeads((leadData.leads || []).map(normalizeLead))
       setRemoteTotal(Number(leadData.total || 0))
       setDashboard(dashboardData)
       setAuditLogs(auditData.logs || [])
-      setSettingsDraft(extractSettings(config, settingsData.settings || {}))
-      setSettingsUpdatedAt(settingsData.updatedAt || '')
       setAuthMessage('')
     } catch (error) {
       if (error.status === 401) {
@@ -237,7 +249,10 @@ function App() {
   }, [remoteMode])
 
   useEffect(() => {
-    if (remoteMode && authChecked && authenticated) refreshRemote()
+    if (remoteMode && authChecked && authenticated) {
+      refreshRemote()
+      loadRemoteSettings()
+    }
   }, [remoteMode, authChecked, authenticated, remotePage, stage, leadSearch])
 
   const localStats = useMemo(() => {
