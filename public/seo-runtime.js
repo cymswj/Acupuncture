@@ -45,13 +45,14 @@
     if (!analyticsUrl) return
     const payload = {
       eventName: name,
-      path: window.location.pathname,
+      path: window.location.pathname.slice(0, 200),
       language: document.documentElement.lang || 'ru',
       source: new URLSearchParams(window.location.search).get('utm_source') || 'seo',
       medium: new URLSearchParams(window.location.search).get('utm_medium') || 'organic',
       campaign: new URLSearchParams(window.location.search).get('utm_campaign') || '',
-      ...properties,
     }
+    if (properties.channel) payload.channel = String(properties.channel).slice(0, 40)
+    if (properties.placement) payload.placement = String(properties.placement).slice(0, 80)
     fetch(analyticsUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -92,8 +93,11 @@
       const hospital = config.hospital || {}
       const legal = config.legal || {}
       document.querySelectorAll('.seoFooterBrand').forEach(node => {
-        const textNode = Array.from(node.childNodes).find(child => child.nodeType === Node.TEXT_NODE)
-        if (textNode && config.brand?.name) textNode.nodeValue = config.brand.name
+        if (config.brand?.name) {
+          const span = node.querySelector('span')
+          node.textContent = config.brand.name
+          if (span) node.appendChild(span)
+        }
       })
       document.querySelectorAll('.seoFooterBottom span:first-child').forEach(node => {
         if (config.brand?.name) node.textContent = '© 2026 ' + config.brand.name
