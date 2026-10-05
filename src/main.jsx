@@ -235,7 +235,6 @@ function App() {
   }, [])
 
   useEffect(() => {
-    recordEvent('page_view', { language: lang })
     fetch(`${import.meta.env.BASE_URL}config/site.json`, { cache: 'no-store' })
       .then(r => r.ok ? r.json() : Promise.reject(new Error('config unavailable')))
       .then(data => {
@@ -281,7 +280,7 @@ function App() {
   const telegramShareUrl = config.contact?.telegramShareUrl || ''
   const analyticsRemoteUrl = config.analyticsApi?.enabled && config.analyticsApi.url ? config.analyticsApi.url : ''
   const analyticsRemoteMethod = config.analyticsApi?.method || 'POST'
-  const recordEvent = (name, properties = {}) => recordEvent(name, properties, { remoteUrl: analyticsRemoteUrl, method: analyticsRemoteMethod })
+  const recordEvent = (name, properties = {}) => trackEvent(name, properties, { remoteUrl: analyticsRemoteUrl, method: analyticsRemoteMethod })
   const scroll = id => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
   useEffect(() => {
