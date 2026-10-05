@@ -216,7 +216,7 @@ function cleanLead(input) {
 
 function createLeadId() {
   const date = new Date().toISOString().slice(2, 10).replaceAll('-', '')
-  const suffix = crypto.randomBytes(3).toString('hex').toUpperCase()
+  const suffix = crypto.randomBytes(8).toString('hex').toUpperCase()
   return 'SAN-' + date + '-' + suffix
 }
 
@@ -260,7 +260,7 @@ function cleanEmail(value) {
 }
 function cleanPhone(value) {
   const candidate = String(value || '').trim().slice(0, 40)
-  return candidate && !/^\+?[\d ()-]{7,40}$/.test(candidate) ? '' : candidate
+  return candidate && (!/^\+?[\d ()-]{7,40}$/.test(candidate) || !/\d/.test(candidate)) ? '' : candidate
 }
 let publicSettingsCache = { settings: null, expiresAt: 0, updatedAt: null }
 
@@ -359,8 +359,13 @@ const server = http.createServer(async (req, res) => {
       }
       clearFailedLogins(ip)
       const session = await createSession(username)
+      try {
+        await audit(username, 'login', null, req)
+      } catch (error) {
+        try { await pool.query('DELETE FROM admin_sessions WHERE token_hash=$1', [tokenHash(session.token)]) } catch {}
+        throw error
+      }
       setSessionCookie(res, session.token, SESSION_TTL_HOURS * 60 * 60)
-      await audit(username, 'login', null, req)
       return json(res, 200, { ok: true, username, expiresAt: session.expiresAt })
     }
 
@@ -461,9 +466,18 @@ const server = http.createServer(async (req, res) => {
       const session = await requireAdmin(req)
       const cookies = parseCookies(req)
       const bearer = cookies[SESSION_COOKIE] || ''
-      if (bearer) await pool.query('DELETE FROM admin_sessions WHERE token_hash=$1', [tokenHash(bearer)])
-      if (session) await audit(session.username, 'logout', null, req)
-      clearSessionCookie(res)
+      try {
+        if (bearer) await pool.query('DELETE FROM admin_sessions WHERE token_hash=$1', [tokenHash(bearer)])
+      } finally {
+        clearSessionCookie(res)
+      }
+      if (session) {
+        try {
+          await audit(session.username, 'logout', null, req)
+        } catch (error) {
+          console.error('Logout audit failed', error)
+        }
+      }
       return json(res, 200, { ok: true })
     }
 
