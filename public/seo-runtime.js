@@ -6,6 +6,7 @@
     brand: { ...baseConfig.brand, ...(next.brand || {}) },
     contact: { ...baseConfig.contact, ...(next.contact || {}) },
     hospital: { ...baseConfig.hospital, ...(next.hospital || {}) },
+    legal: { ...baseConfig.legal, ...(next.legal || {}) },
     seo: {
       ...baseConfig.seo,
       ...(next.seo || {}),
@@ -66,6 +67,7 @@
 
       const contact = config.contact || {}
       const hospital = config.hospital || {}
+      const legal = config.legal || {}
       const phone = String(contact.phone || '').trim()
       const phoneUrl = contact.phoneUrl || (phone ? 'tel:' + phone.replace(/[^\d+]/g, '') : '')
       const telegramUrl = String(contact.telegramUrl || '').trim()
@@ -123,6 +125,15 @@
       })
       document.querySelectorAll('[data-hospital-phone]').forEach(node => {
         if (hospital.phone) node.textContent = hospital.phone
+      })
+      document.querySelectorAll('[data-service-owner]').forEach(node => {
+        if (legal.serviceOwner) node.textContent = legal.serviceOwner
+      })
+      document.querySelectorAll('[data-service-email]').forEach(node => {
+        if (legal.contactEmail) {
+          node.textContent = legal.contactEmail
+          if (node.tagName === 'A') node.href = 'mailto:' + legal.contactEmail
+        }
       })
     } catch {}
   }
