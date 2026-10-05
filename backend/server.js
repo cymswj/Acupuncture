@@ -299,7 +299,7 @@ function cleanPublicSettings(input = {}) {
       website: cleanHttpsUrl(hospital.website),
       department: String(hospital.department || '').trim().slice(0, 120),
       sourceUrl: cleanHttpsUrl(hospital.sourceUrl),
-      lastVerified: /^\d{4}-\d{2}-\d{2}$/.test(String(hospital.lastVerified || '')) ? hospital.lastVerified : '',
+      lastVerified: isValidIsoDate(hospital.lastVerified) ? String(hospital.lastVerified).trim() : '',
     },
     legal: {
       serviceOwner: String(legal.serviceOwner || '').trim().slice(0, 200),
