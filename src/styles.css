@@ -12,7 +12,7 @@
 .footerPhone span{font-size:11px;color:#9fb0a7}
 .footerPhone{font-weight:800}
 .footerTelegram{font-weight:700}
-.footerQr{width:112px;height:112px;object-fit:contain;background:#fff;padding:4px;border-radius:9px;margin-top:5px}
+.footerQrLink{display:inline-flex;border-radius:10px}.footerQrLink:focus-visible{outline:3px solid #b8d0bc;outline-offset:3px}.footerQr{width:112px;height:112px;object-fit:contain;background:#fff;padding:4px;border-radius:9px;margin-top:5px}
 .footerDisclaimer{font-size:12px!important;font-weight:700}
 .footerBottom{border-top:1px solid rgba(215,226,219,.18);display:flex;justify-content:space-between;align-items:center;gap:20px;padding:18px 0 24px;color:#83958c;font-size:11px}
 .footerBottom nav{display:flex;gap:18px;flex-wrap:wrap}
