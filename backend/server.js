@@ -413,6 +413,7 @@ const server = http.createServer(async (req, res) => {
           brand: { ...currentSettings.brand, ...(input.brand || {}) },
           contact: { ...currentSettings.contact, ...(input.contact || {}) },
           hospital: { ...currentSettings.hospital, ...(input.hospital || {}) },
+          legal: { ...currentSettings.legal, ...(input.legal || {}) },
           seo: {
             ...currentSettings.seo,
             ...(input.seo || {}),
