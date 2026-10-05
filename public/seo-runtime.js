@@ -6,7 +6,35 @@
     brand: { ...baseConfig.brand, ...(next.brand || {}) },
     contact: { ...baseConfig.contact, ...(next.contact || {}) },
     hospital: { ...baseConfig.hospital, ...(next.hospital || {}) },
+    seo: {
+      ...baseConfig.seo,
+      ...(next.seo || {}),
+      ru: { ...baseConfig.seo?.ru, ...(next.seo?.ru || {}) },
+      zh: { ...baseConfig.seo?.zh, ...(next.seo?.zh || {}) },
+      en: { ...baseConfig.seo?.en, ...(next.seo?.en || {}) },
+    },
   })
+
+  function setMeta(name, content) {
+    if (!content) return
+    let node = document.querySelector('meta[name="' + name + '"]')
+    if (!node) {
+      node = document.createElement('meta')
+      node.setAttribute('name', name)
+      document.head.appendChild(node)
+    }
+    node.setAttribute('content', content)
+  }
+  function setProperty(property, content) {
+    if (!content) return
+    let node = document.querySelector('meta[property="' + property + '"]')
+    if (!node) {
+      node = document.createElement('meta')
+      node.setAttribute('property', property)
+      document.head.appendChild(node)
+    }
+    node.setAttribute('content', content)
+  }
 
   async function load() {
     try {
@@ -23,6 +51,18 @@
           }
         } catch {}
       }
+
+      const lang = String(document.documentElement.lang || 'ru').toLowerCase().startsWith('zh') ? 'zh' : String(document.documentElement.lang || 'ru').toLowerCase().startsWith('en') ? 'en' : 'ru'
+      const seo = config.seo || {}
+      const localizedSeo = seo[lang] || {}
+      const title = localizedSeo.title || seo.defaultTitle || document.title
+      const description = localizedSeo.description || seo.defaultDescription || ''
+      const keywords = localizedSeo.keywords || seo.keywords || ''
+      if (title) document.title = title
+      setMeta('description', description)
+      setMeta('keywords', keywords)
+      setProperty('og:title', title)
+      setProperty('og:description', description)
 
       const contact = config.contact || {}
       const hospital = config.hospital || {}
