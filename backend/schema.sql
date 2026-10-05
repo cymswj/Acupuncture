@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS leads (
 CREATE INDEX IF NOT EXISTS idx_leads_stage ON leads(stage);
 CREATE INDEX IF NOT EXISTS idx_leads_source ON leads(source);
 CREATE INDEX IF NOT EXISTS idx_leads_created_at ON leads(created_at);
+CREATE INDEX IF NOT EXISTS idx_leads_preferred_date ON leads(preferred_date);
 
 CREATE TABLE IF NOT EXISTS funnel_events (
   id BIGSERIAL PRIMARY KEY,
@@ -33,6 +34,7 @@ CREATE TABLE IF NOT EXISTS funnel_events (
 );
 CREATE INDEX IF NOT EXISTS idx_funnel_events_name ON funnel_events(event_name);
 CREATE INDEX IF NOT EXISTS idx_funnel_events_occurred_at ON funnel_events(occurred_at);
+CREATE INDEX IF NOT EXISTS idx_funnel_events_source_occurred_at ON funnel_events(source, occurred_at);
 
 CREATE TABLE IF NOT EXISTS admin_sessions (
   id BIGSERIAL PRIMARY KEY,
