@@ -410,9 +410,13 @@ function App() {
             <label><span>默认关键词</span><textarea rows="3" value={settingsDraft.seo.keywords} onChange={e=>updateSettings('seo','keywords',e.target.value)} /></label>
           </section>
           <section className="settingsGroup settingsWide">
-            <h3>俄语 SEO</h3>
-            <div className="settingsTwo"><label><span>标题</span><input value={settingsDraft.seo.ru.title} onChange={e=>updateSeo('ru','title',e.target.value)} /></label><label><span>描述</span><textarea rows="3" value={settingsDraft.seo.ru.description} onChange={e=>updateSeo('ru','description',e.target.value)} /></label></div>
-            <p className="settingsHint">医院信息、品牌、联系方式与 SEO 属于公开运营配置；管理员账号、API 地址、数据库、Cookie 和部署参数仍然由服务器环境管理。</p>
+            <h3>多语言 SEO</h3>
+            <div className="settingsThree">
+              <div><h4>Русский / RU</h4><label><span>标题</span><input value={settingsDraft.seo.ru.title} onChange={e=>updateSeo('ru','title',e.target.value)} /></label><label><span>描述</span><textarea rows="4" value={settingsDraft.seo.ru.description} onChange={e=>updateSeo('ru','description',e.target.value)} /></label><label><span>关键词</span><textarea rows="3" value={settingsDraft.seo.ru.keywords} onChange={e=>updateSeo('ru','keywords',e.target.value)} /></label></div>
+              <div><h4>中文 / ZH</h4><label><span>标题</span><input value={settingsDraft.seo.zh.title} onChange={e=>updateSeo('zh','title',e.target.value)} /></label><label><span>描述</span><textarea rows="4" value={settingsDraft.seo.zh.description} onChange={e=>updateSeo('zh','description',e.target.value)} /></label><label><span>关键词</span><textarea rows="3" value={settingsDraft.seo.zh.keywords} onChange={e=>updateSeo('zh','keywords',e.target.value)} /></label></div>
+              <div><h4>English / EN</h4><label><span>Title</span><input value={settingsDraft.seo.en.title} onChange={e=>updateSeo('en','title',e.target.value)} /></label><label><span>Description</span><textarea rows="4" value={settingsDraft.seo.en.description} onChange={e=>updateSeo('en','description',e.target.value)} /></label><label><span>Keywords</span><textarea rows="3" value={settingsDraft.seo.en.keywords} onChange={e=>updateSeo('en','keywords',e.target.value)} /></label></div>
+            </div>
+            <p className="settingsHint">医院信息、品牌、联系方式与多语言 SEO 属于公开运营配置；管理员账号、API 地址、数据库、Cookie 和部署参数仍然由服务器环境管理。</p>
             <div className="settingsBar"><span>{settingsUpdatedAt ? '最后更新：' + new Date(settingsUpdatedAt).toLocaleString('zh-CN') : '尚未保存到共享后台'}</span><button className="btn primary" onClick={saveSettings} disabled={settingsSaving}>{settingsSaving ? '保存中…' : '保存网站设置'}</button></div>
             {settingsMessage ? <p className="formMessage">{settingsMessage}</p> : null}
           </section>
