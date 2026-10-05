@@ -75,16 +75,18 @@ function requestFromAllowedOrigin(req) {
   const origin = String(req.headers.origin || '')
   return !origin || origin === ORIGIN
 }
+function safeDecode(value) {
+  try { return decodeURIComponent(value) } catch { return '' }
+}
 function parseCookies(req) {
   const raw = String(req.headers.cookie || '')
   return Object.fromEntries(
     raw.split(';').map(part => part.trim()).filter(Boolean).map(part => {
       const index = part.indexOf('=')
-      return index < 0 ? [part, ''] : [part.slice(0, index), decodeURIComponent(part.slice(index + 1))]
+      return index < 0 ? [part, ''] : [part.slice(0, index), safeDecode(part.slice(index + 1))]
     })
   )
 }
-function safeDecode(value) { try { return decodeURIComponent(value) } catch { return '' } }
 function setSessionCookie(res, token, maxAgeSeconds) {
   res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; Max-Age=${maxAgeSeconds}; HttpOnly; Secure; SameSite=${SESSION_SAMESITE}`)
 }
@@ -215,6 +217,30 @@ function createLeadId() {
   return 'SAN-' + date + '-' + suffix
 }
 
+function positiveInt(value, fallback, max) {
+  const parsed = Number(value)
+  if (!Number.isInteger(parsed) || parsed < 0) return fallback
+  return Math.min(parsed, max)
+}
+function parsePagination(url, defaultLimit = 100, maxLimit = 500) {
+  const limit = Math.max(1, positiveInt(url.searchParams.get('limit'), defaultLimit, maxLimit))
+  const offset = positiveInt(url.searchParams.get('offset'), 0, 1000000)
+  return { limit, offset }
+}
+function cleanOptionalDate(value) {
+  const candidate = String(value || '').trim()
+  return /^\d{4}-\d{2}-\d{2}$/.test(candidate) ? candidate : null
+}
+function cleanOptionalValue(value) {
+  if (value === '' || value == null) return null
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric) || numeric < 0 || numeric > 1000000000) return null
+  return Math.round(numeric * 100) / 100
+}
+function cleanOwner(value) {
+  return String(value || '').trim().slice(0, 120)
+}
+
 async function ensureSchema() {
   const schemaPath = new URL('./schema.sql', import.meta.url)
   const schema = await fs.readFile(schemaPath, 'utf8')
@@ -301,8 +327,490 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/leads') {
       const session = await requireAdmin(req)
       if (!session) return json(res, 401, { error: 'unauthorized' })
-      const result = await pool.query('SELECT * FROM leads ORDER BY created_at DESC LIMIT 500')
-      return json(res, 200, { leads: result.rows })
+      const { limit, offset } = parsePagination(url, 100, 500)
+      const stageFilter = String(url.searchParams.get('stage') || '').trim()
+      const sourceFilter = String(url.searchParams.get('source') || '').trim().slice(0, 80)
+      const queryFilter = String(url.searchParams.get('q') || '').trim().slice(0, 120)
+      const where = []
+      const values = []
+      if (stages.has(stageFilter)) {
+        values.push(stageFilter)
+        where.push('stage=
+      const session = await requireAdmin(req)
+      if (!session) return json(res, 401, { error: 'unauthorized' })
+      const [counts, sources, events] = await Promise.all([
+        pool.query('SELECT stage, COUNT(*)::int AS count FROM leads GROUP BY stage'),
+        pool.query("SELECT COALESCE(source,'direct') AS source, COUNT(*)::int AS count FROM leads GROUP BY 1 ORDER BY count DESC LIMIT 10"),
+        pool.query('SELECT COUNT(*)::int AS count FROM funnel_events'),
+      ])
+      const stageCounts = Object.fromEntries(counts.rows.map(row => [row.stage, row.count]))
+      return json(res, 200, {
+        totals: {
+          leads: Object.values(stageCounts).reduce((sum, n) => sum + n, 0),
+          confirmed: stageCounts.confirmed || 0,
+          visited: stageCounts.visited || 0,
+          followup: stageCounts.followup || 0,
+          events: events.rows[0]?.count || 0,
+        },
+        stageCounts,
+        sources: sources.rows,
+      })
+    }
+
+    if (req.method === 'PATCH' && url.pathname.startsWith('/api/leads/')) {
+      if (!requireJson(req)) return json(res, 415, { error: 'content-type must be application/json' })
+      if (!requestFromAllowedOrigin(req)) return json(res, 403, { error: 'origin not allowed' })
+      const session = await requireAdmin(req)
+      if (!session) return json(res, 401, { error: 'unauthorized' })
+      const id = decodeURIComponent(url.pathname.slice('/api/leads/'.length))
+      const input = await readBody(req)
+      const stage = String(input.stage || '')
+      if (!stages.has(stage)) return json(res, 400, { error: 'invalid stage' })
+      const appointmentDate = cleanOptionalDate(input.appointmentDate)
+      const visitDate = cleanOptionalDate(input.visitDate)
+      const followupDate = cleanOptionalDate(input.followupDate)
+      const valueCny = cleanOptionalValue(input.valueCny)
+      const owner = cleanOwner(input.owner)
+      const updateResult = await pool.query(
+        'UPDATE leads SET stage=$1,updated_at=NOW(),appointment_date=COALESCE($2,appointment_date),visit_date=COALESCE($3,visit_date),followup_date=COALESCE($4,followup_date),value_cny=COALESCE($5,value_cny),owner=COALESCE($6,owner) WHERE id=$7',
+        [stage,appointmentDate,visitDate,followupDate,valueCny,owner || null,id]
+      )
+      if (!updateResult.rowCount) return json(res, 404, { error: 'lead not found' })
+      await audit(session.username, 'lead_update', id, req, { stage, appointmentDate, visitDate, followupDate, valueCny, owner: owner || null })
+      return json(res, 200, { ok: true, id, stage })
+    }
+
+    return json(res, 404, { error: 'not found' })
+  } catch (error) {
+    console.error(error)
+    return json(res, error.statusCode || 500, { error: 'server error' })
+  }
+})
+
+ensureSchema()
+  .then(() => server.listen(PORT, () => console.log('Sanya TCM API listening on :' + PORT)))
+  .catch(error => {
+    console.error('Database schema initialization failed', error)
+    process.exit(1)
+  })
+
+async function shutdown(signal) {
+  console.log('Received ' + signal + ', shutting down')
+  server.close(async () => {
+    await pool.end()
+    process.exit(0)
+  })
+  setTimeout(() => process.exit(1), 10000).unref()
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))
+ + values.length)
+      }
+      if (sourceFilter) {
+        values.push(sourceFilter)
+        where.push('source=
+      const session = await requireAdmin(req)
+      if (!session) return json(res, 401, { error: 'unauthorized' })
+      const [counts, sources, events] = await Promise.all([
+        pool.query('SELECT stage, COUNT(*)::int AS count FROM leads GROUP BY stage'),
+        pool.query("SELECT COALESCE(source,'direct') AS source, COUNT(*)::int AS count FROM leads GROUP BY 1 ORDER BY count DESC LIMIT 10"),
+        pool.query('SELECT COUNT(*)::int AS count FROM funnel_events'),
+      ])
+      const stageCounts = Object.fromEntries(counts.rows.map(row => [row.stage, row.count]))
+      return json(res, 200, {
+        totals: {
+          leads: Object.values(stageCounts).reduce((sum, n) => sum + n, 0),
+          confirmed: stageCounts.confirmed || 0,
+          visited: stageCounts.visited || 0,
+          followup: stageCounts.followup || 0,
+          events: events.rows[0]?.count || 0,
+        },
+        stageCounts,
+        sources: sources.rows,
+      })
+    }
+
+    if (req.method === 'PATCH' && url.pathname.startsWith('/api/leads/')) {
+      if (!requireJson(req)) return json(res, 415, { error: 'content-type must be application/json' })
+      if (!requestFromAllowedOrigin(req)) return json(res, 403, { error: 'origin not allowed' })
+      const session = await requireAdmin(req)
+      if (!session) return json(res, 401, { error: 'unauthorized' })
+      const id = decodeURIComponent(url.pathname.slice('/api/leads/'.length))
+      const input = await readBody(req)
+      const stage = String(input.stage || '')
+      if (!stages.has(stage)) return json(res, 400, { error: 'invalid stage' })
+      await pool.query(
+        'UPDATE leads SET stage=$1,updated_at=NOW(),appointment_date=COALESCE($2,appointment_date),visit_date=COALESCE($3,visit_date),followup_date=COALESCE($4,followup_date),value_cny=COALESCE($5,value_cny),owner=COALESCE($6,owner) WHERE id=$7',
+        [stage,input.appointmentDate || null,input.visitDate || null,input.followupDate || null,input.valueCny || null,input.owner || null,id]
+      )
+      await audit(session.username, 'lead_update', id, req, { stage })
+      return json(res, 200, { ok: true, id, stage })
+    }
+
+    return json(res, 404, { error: 'not found' })
+  } catch (error) {
+    console.error(error)
+    return json(res, error.statusCode || 500, { error: 'server error' })
+  }
+})
+
+ensureSchema()
+  .then(() => server.listen(PORT, () => console.log('Sanya TCM API listening on :' + PORT)))
+  .catch(error => {
+    console.error('Database schema initialization failed', error)
+    process.exit(1)
+  })
+
+async function shutdown(signal) {
+  console.log('Received ' + signal + ', shutting down')
+  server.close(async () => {
+    await pool.end()
+    process.exit(0)
+  })
+  setTimeout(() => process.exit(1), 10000).unref()
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))
+ + values.length)
+      }
+      if (queryFilter) {
+        values.push('%' + queryFilter + '%')
+        where.push('(name ILIKE 
+      const session = await requireAdmin(req)
+      if (!session) return json(res, 401, { error: 'unauthorized' })
+      const [counts, sources, events] = await Promise.all([
+        pool.query('SELECT stage, COUNT(*)::int AS count FROM leads GROUP BY stage'),
+        pool.query("SELECT COALESCE(source,'direct') AS source, COUNT(*)::int AS count FROM leads GROUP BY 1 ORDER BY count DESC LIMIT 10"),
+        pool.query('SELECT COUNT(*)::int AS count FROM funnel_events'),
+      ])
+      const stageCounts = Object.fromEntries(counts.rows.map(row => [row.stage, row.count]))
+      return json(res, 200, {
+        totals: {
+          leads: Object.values(stageCounts).reduce((sum, n) => sum + n, 0),
+          confirmed: stageCounts.confirmed || 0,
+          visited: stageCounts.visited || 0,
+          followup: stageCounts.followup || 0,
+          events: events.rows[0]?.count || 0,
+        },
+        stageCounts,
+        sources: sources.rows,
+      })
+    }
+
+    if (req.method === 'PATCH' && url.pathname.startsWith('/api/leads/')) {
+      if (!requireJson(req)) return json(res, 415, { error: 'content-type must be application/json' })
+      if (!requestFromAllowedOrigin(req)) return json(res, 403, { error: 'origin not allowed' })
+      const session = await requireAdmin(req)
+      if (!session) return json(res, 401, { error: 'unauthorized' })
+      const id = decodeURIComponent(url.pathname.slice('/api/leads/'.length))
+      const input = await readBody(req)
+      const stage = String(input.stage || '')
+      if (!stages.has(stage)) return json(res, 400, { error: 'invalid stage' })
+      await pool.query(
+        'UPDATE leads SET stage=$1,updated_at=NOW(),appointment_date=COALESCE($2,appointment_date),visit_date=COALESCE($3,visit_date),followup_date=COALESCE($4,followup_date),value_cny=COALESCE($5,value_cny),owner=COALESCE($6,owner) WHERE id=$7',
+        [stage,input.appointmentDate || null,input.visitDate || null,input.followupDate || null,input.valueCny || null,input.owner || null,id]
+      )
+      await audit(session.username, 'lead_update', id, req, { stage })
+      return json(res, 200, { ok: true, id, stage })
+    }
+
+    return json(res, 404, { error: 'not found' })
+  } catch (error) {
+    console.error(error)
+    return json(res, error.statusCode || 500, { error: 'server error' })
+  }
+})
+
+ensureSchema()
+  .then(() => server.listen(PORT, () => console.log('Sanya TCM API listening on :' + PORT)))
+  .catch(error => {
+    console.error('Database schema initialization failed', error)
+    process.exit(1)
+  })
+
+async function shutdown(signal) {
+  console.log('Received ' + signal + ', shutting down')
+  server.close(async () => {
+    await pool.end()
+    process.exit(0)
+  })
+  setTimeout(() => process.exit(1), 10000).unref()
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))
+ + values.length + ' OR contact ILIKE 
+      const session = await requireAdmin(req)
+      if (!session) return json(res, 401, { error: 'unauthorized' })
+      const [counts, sources, events] = await Promise.all([
+        pool.query('SELECT stage, COUNT(*)::int AS count FROM leads GROUP BY stage'),
+        pool.query("SELECT COALESCE(source,'direct') AS source, COUNT(*)::int AS count FROM leads GROUP BY 1 ORDER BY count DESC LIMIT 10"),
+        pool.query('SELECT COUNT(*)::int AS count FROM funnel_events'),
+      ])
+      const stageCounts = Object.fromEntries(counts.rows.map(row => [row.stage, row.count]))
+      return json(res, 200, {
+        totals: {
+          leads: Object.values(stageCounts).reduce((sum, n) => sum + n, 0),
+          confirmed: stageCounts.confirmed || 0,
+          visited: stageCounts.visited || 0,
+          followup: stageCounts.followup || 0,
+          events: events.rows[0]?.count || 0,
+        },
+        stageCounts,
+        sources: sources.rows,
+      })
+    }
+
+    if (req.method === 'PATCH' && url.pathname.startsWith('/api/leads/')) {
+      if (!requireJson(req)) return json(res, 415, { error: 'content-type must be application/json' })
+      if (!requestFromAllowedOrigin(req)) return json(res, 403, { error: 'origin not allowed' })
+      const session = await requireAdmin(req)
+      if (!session) return json(res, 401, { error: 'unauthorized' })
+      const id = decodeURIComponent(url.pathname.slice('/api/leads/'.length))
+      const input = await readBody(req)
+      const stage = String(input.stage || '')
+      if (!stages.has(stage)) return json(res, 400, { error: 'invalid stage' })
+      await pool.query(
+        'UPDATE leads SET stage=$1,updated_at=NOW(),appointment_date=COALESCE($2,appointment_date),visit_date=COALESCE($3,visit_date),followup_date=COALESCE($4,followup_date),value_cny=COALESCE($5,value_cny),owner=COALESCE($6,owner) WHERE id=$7',
+        [stage,input.appointmentDate || null,input.visitDate || null,input.followupDate || null,input.valueCny || null,input.owner || null,id]
+      )
+      await audit(session.username, 'lead_update', id, req, { stage })
+      return json(res, 200, { ok: true, id, stage })
+    }
+
+    return json(res, 404, { error: 'not found' })
+  } catch (error) {
+    console.error(error)
+    return json(res, error.statusCode || 500, { error: 'server error' })
+  }
+})
+
+ensureSchema()
+  .then(() => server.listen(PORT, () => console.log('Sanya TCM API listening on :' + PORT)))
+  .catch(error => {
+    console.error('Database schema initialization failed', error)
+    process.exit(1)
+  })
+
+async function shutdown(signal) {
+  console.log('Received ' + signal + ', shutting down')
+  server.close(async () => {
+    await pool.end()
+    process.exit(0)
+  })
+  setTimeout(() => process.exit(1), 10000).unref()
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))
+ + values.length + ' OR service ILIKE 
+      const session = await requireAdmin(req)
+      if (!session) return json(res, 401, { error: 'unauthorized' })
+      const [counts, sources, events] = await Promise.all([
+        pool.query('SELECT stage, COUNT(*)::int AS count FROM leads GROUP BY stage'),
+        pool.query("SELECT COALESCE(source,'direct') AS source, COUNT(*)::int AS count FROM leads GROUP BY 1 ORDER BY count DESC LIMIT 10"),
+        pool.query('SELECT COUNT(*)::int AS count FROM funnel_events'),
+      ])
+      const stageCounts = Object.fromEntries(counts.rows.map(row => [row.stage, row.count]))
+      return json(res, 200, {
+        totals: {
+          leads: Object.values(stageCounts).reduce((sum, n) => sum + n, 0),
+          confirmed: stageCounts.confirmed || 0,
+          visited: stageCounts.visited || 0,
+          followup: stageCounts.followup || 0,
+          events: events.rows[0]?.count || 0,
+        },
+        stageCounts,
+        sources: sources.rows,
+      })
+    }
+
+    if (req.method === 'PATCH' && url.pathname.startsWith('/api/leads/')) {
+      if (!requireJson(req)) return json(res, 415, { error: 'content-type must be application/json' })
+      if (!requestFromAllowedOrigin(req)) return json(res, 403, { error: 'origin not allowed' })
+      const session = await requireAdmin(req)
+      if (!session) return json(res, 401, { error: 'unauthorized' })
+      const id = decodeURIComponent(url.pathname.slice('/api/leads/'.length))
+      const input = await readBody(req)
+      const stage = String(input.stage || '')
+      if (!stages.has(stage)) return json(res, 400, { error: 'invalid stage' })
+      await pool.query(
+        'UPDATE leads SET stage=$1,updated_at=NOW(),appointment_date=COALESCE($2,appointment_date),visit_date=COALESCE($3,visit_date),followup_date=COALESCE($4,followup_date),value_cny=COALESCE($5,value_cny),owner=COALESCE($6,owner) WHERE id=$7',
+        [stage,input.appointmentDate || null,input.visitDate || null,input.followupDate || null,input.valueCny || null,input.owner || null,id]
+      )
+      await audit(session.username, 'lead_update', id, req, { stage })
+      return json(res, 200, { ok: true, id, stage })
+    }
+
+    return json(res, 404, { error: 'not found' })
+  } catch (error) {
+    console.error(error)
+    return json(res, error.statusCode || 500, { error: 'server error' })
+  }
+})
+
+ensureSchema()
+  .then(() => server.listen(PORT, () => console.log('Sanya TCM API listening on :' + PORT)))
+  .catch(error => {
+    console.error('Database schema initialization failed', error)
+    process.exit(1)
+  })
+
+async function shutdown(signal) {
+  console.log('Received ' + signal + ', shutting down')
+  server.close(async () => {
+    await pool.end()
+    process.exit(0)
+  })
+  setTimeout(() => process.exit(1), 10000).unref()
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))
+ + values.length + ')')
+      }
+      const whereSql = where.length ? 'WHERE ' + where.join(' AND ') : ''
+      const countResult = await pool.query('SELECT COUNT(*)::int AS count FROM leads ' + whereSql, values)
+      const rowValues = [...values, limit, offset]
+      const result = await pool.query(
+        'SELECT * FROM leads ' + whereSql + ' ORDER BY created_at DESC LIMIT 
+      const session = await requireAdmin(req)
+      if (!session) return json(res, 401, { error: 'unauthorized' })
+      const [counts, sources, events] = await Promise.all([
+        pool.query('SELECT stage, COUNT(*)::int AS count FROM leads GROUP BY stage'),
+        pool.query("SELECT COALESCE(source,'direct') AS source, COUNT(*)::int AS count FROM leads GROUP BY 1 ORDER BY count DESC LIMIT 10"),
+        pool.query('SELECT COUNT(*)::int AS count FROM funnel_events'),
+      ])
+      const stageCounts = Object.fromEntries(counts.rows.map(row => [row.stage, row.count]))
+      return json(res, 200, {
+        totals: {
+          leads: Object.values(stageCounts).reduce((sum, n) => sum + n, 0),
+          confirmed: stageCounts.confirmed || 0,
+          visited: stageCounts.visited || 0,
+          followup: stageCounts.followup || 0,
+          events: events.rows[0]?.count || 0,
+        },
+        stageCounts,
+        sources: sources.rows,
+      })
+    }
+
+    if (req.method === 'PATCH' && url.pathname.startsWith('/api/leads/')) {
+      if (!requireJson(req)) return json(res, 415, { error: 'content-type must be application/json' })
+      if (!requestFromAllowedOrigin(req)) return json(res, 403, { error: 'origin not allowed' })
+      const session = await requireAdmin(req)
+      if (!session) return json(res, 401, { error: 'unauthorized' })
+      const id = decodeURIComponent(url.pathname.slice('/api/leads/'.length))
+      const input = await readBody(req)
+      const stage = String(input.stage || '')
+      if (!stages.has(stage)) return json(res, 400, { error: 'invalid stage' })
+      await pool.query(
+        'UPDATE leads SET stage=$1,updated_at=NOW(),appointment_date=COALESCE($2,appointment_date),visit_date=COALESCE($3,visit_date),followup_date=COALESCE($4,followup_date),value_cny=COALESCE($5,value_cny),owner=COALESCE($6,owner) WHERE id=$7',
+        [stage,input.appointmentDate || null,input.visitDate || null,input.followupDate || null,input.valueCny || null,input.owner || null,id]
+      )
+      await audit(session.username, 'lead_update', id, req, { stage })
+      return json(res, 200, { ok: true, id, stage })
+    }
+
+    return json(res, 404, { error: 'not found' })
+  } catch (error) {
+    console.error(error)
+    return json(res, error.statusCode || 500, { error: 'server error' })
+  }
+})
+
+ensureSchema()
+  .then(() => server.listen(PORT, () => console.log('Sanya TCM API listening on :' + PORT)))
+  .catch(error => {
+    console.error('Database schema initialization failed', error)
+    process.exit(1)
+  })
+
+async function shutdown(signal) {
+  console.log('Received ' + signal + ', shutting down')
+  server.close(async () => {
+    await pool.end()
+    process.exit(0)
+  })
+  setTimeout(() => process.exit(1), 10000).unref()
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))
+ + (values.length + 1) + ' OFFSET 
+      const session = await requireAdmin(req)
+      if (!session) return json(res, 401, { error: 'unauthorized' })
+      const [counts, sources, events] = await Promise.all([
+        pool.query('SELECT stage, COUNT(*)::int AS count FROM leads GROUP BY stage'),
+        pool.query("SELECT COALESCE(source,'direct') AS source, COUNT(*)::int AS count FROM leads GROUP BY 1 ORDER BY count DESC LIMIT 10"),
+        pool.query('SELECT COUNT(*)::int AS count FROM funnel_events'),
+      ])
+      const stageCounts = Object.fromEntries(counts.rows.map(row => [row.stage, row.count]))
+      return json(res, 200, {
+        totals: {
+          leads: Object.values(stageCounts).reduce((sum, n) => sum + n, 0),
+          confirmed: stageCounts.confirmed || 0,
+          visited: stageCounts.visited || 0,
+          followup: stageCounts.followup || 0,
+          events: events.rows[0]?.count || 0,
+        },
+        stageCounts,
+        sources: sources.rows,
+      })
+    }
+
+    if (req.method === 'PATCH' && url.pathname.startsWith('/api/leads/')) {
+      if (!requireJson(req)) return json(res, 415, { error: 'content-type must be application/json' })
+      if (!requestFromAllowedOrigin(req)) return json(res, 403, { error: 'origin not allowed' })
+      const session = await requireAdmin(req)
+      if (!session) return json(res, 401, { error: 'unauthorized' })
+      const id = decodeURIComponent(url.pathname.slice('/api/leads/'.length))
+      const input = await readBody(req)
+      const stage = String(input.stage || '')
+      if (!stages.has(stage)) return json(res, 400, { error: 'invalid stage' })
+      await pool.query(
+        'UPDATE leads SET stage=$1,updated_at=NOW(),appointment_date=COALESCE($2,appointment_date),visit_date=COALESCE($3,visit_date),followup_date=COALESCE($4,followup_date),value_cny=COALESCE($5,value_cny),owner=COALESCE($6,owner) WHERE id=$7',
+        [stage,input.appointmentDate || null,input.visitDate || null,input.followupDate || null,input.valueCny || null,input.owner || null,id]
+      )
+      await audit(session.username, 'lead_update', id, req, { stage })
+      return json(res, 200, { ok: true, id, stage })
+    }
+
+    return json(res, 404, { error: 'not found' })
+  } catch (error) {
+    console.error(error)
+    return json(res, error.statusCode || 500, { error: 'server error' })
+  }
+})
+
+ensureSchema()
+  .then(() => server.listen(PORT, () => console.log('Sanya TCM API listening on :' + PORT)))
+  .catch(error => {
+    console.error('Database schema initialization failed', error)
+    process.exit(1)
+  })
+
+async function shutdown(signal) {
+  console.log('Received ' + signal + ', shutting down')
+  server.close(async () => {
+    await pool.end()
+    process.exit(0)
+  })
+  setTimeout(() => process.exit(1), 10000).unref()
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT', () => shutdown('SIGINT'))
+ + (values.length + 2),
+        rowValues
+      )
+      return json(res, 200, { leads: result.rows, total: countResult.rows[0]?.count || 0, limit, offset })
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/audit') {
+      const session = await requireAdmin(req)
+      if (!session) return json(res, 401, { error: 'unauthorized' })
+      const { limit, offset } = parsePagination(url, 50, 200)
+      const [countResult, result] = await Promise.all([
+        pool.query('SELECT COUNT(*)::int AS count FROM audit_logs'),
+        pool.query('SELECT id,occurred_at,username,action,target_id,ip,metadata FROM audit_logs ORDER BY occurred_at DESC LIMIT $1 OFFSET $2', [limit, offset]),
+      ])
+      return json(res, 200, { logs: result.rows, total: countResult.rows[0]?.count || 0, limit, offset })
     }
 
     if (req.method === 'GET' && url.pathname === '/api/dashboard') {
