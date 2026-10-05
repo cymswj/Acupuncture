@@ -49,6 +49,14 @@
       document.querySelectorAll('[data-service-qr]').forEach(node => {
         if (node.tagName === 'IMG' && qrPath) node.src = qrPath
       })
+      document.querySelectorAll('[data-service-qr-link]').forEach(node => {
+        if (!telegramUrl) return
+        if (node.tagName === 'A') {
+          node.href = telegramUrl
+          node.target = '_blank'
+          node.rel = 'noreferrer'
+        }
+      })
       document.querySelectorAll('[data-hospital-name]').forEach(node => {
         if (hospital.officialName) node.textContent = hospital.officialName + ' ↗'
         if (node.tagName === 'A' && hospital.website) {
@@ -59,6 +67,9 @@
       })
       document.querySelectorAll('[data-hospital-address]').forEach(node => {
         if (hospital.address) node.textContent = hospital.address
+      })
+      document.querySelectorAll('[data-hospital-phone]').forEach(node => {
+        if (hospital.phone) node.textContent = hospital.phone
       })
     } catch {}
   }
