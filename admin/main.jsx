@@ -248,12 +248,33 @@ function App() {
     setLeads(listLeads())
   }
 
-  async function moveRemote(id, next, extra = {}) {
+  async function moveRemote(id, next, extra = {}, lead = null) {
     try {
       await api('/api/leads/' + encodeURIComponent(id), {
         method: 'PATCH',
         body: JSON.stringify({ stage: next, ...extra }),
       })
+      const eventByStage = {
+        confirmed: 'appointment_confirmed',
+        visited: 'visit_completed',
+        followup: 'followup_completed',
+      }
+      const eventName = eventByStage[next]
+      if (eventName) {
+        try {
+          await api('/api/events', {
+            method: 'POST',
+            body: JSON.stringify({
+              eventName,
+              path: '/admin/',
+              language: lead?.language || 'zh',
+              source: lead?.source || 'direct',
+              medium: lead?.medium || '',
+              campaign: lead?.campaign || '',
+            }),
+          })
+        } catch {}
+      }
       await refreshRemote()
     } catch {
       setAuthMessage('更新线索失败。')
@@ -429,7 +450,7 @@ function App() {
       </form>
       <div className="stageBar"><button className={!stage?'active':''} onClick={()=>changeStage('')}>全部 ({remoteMode ? remoteTotal : leads.length})</button>{LEAD_STAGES.map(s=><button key={s} className={stage===s?'active':''} onClick={()=>changeStage(s)}>{stageLabels[s]} ({remoteMode ? remoteStageCount(s) : leads.filter(x=>x.stage===s).length})</button>)}</div>
       {remoteMode ? <details className="emptyCard" style={{marginBottom:16}}><summary><strong>最近操作记录</strong>（审计）</summary><div style={{marginTop:12,overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}><thead><tr><th style={{textAlign:'left',padding:'8px 6px'}}>时间</th><th style={{textAlign:'left',padding:'8px 6px'}}>账号</th><th style={{textAlign:'left',padding:'8px 6px'}}>操作</th><th style={{textAlign:'left',padding:'8px 6px'}}>目标</th></tr></thead><tbody>{auditLogs.map(log=><tr key={log.id}><td style={{padding:'8px 6px'}}>{new Date(log.occurred_at).toLocaleString('zh-CN')}</td><td style={{padding:'8px 6px'}}>{log.username}</td><td style={{padding:'8px 6px'}}>{log.action}</td><td style={{padding:'8px 6px'}}>{log.target_id || '—'}</td></tr>)}</tbody></table>{!auditLogs.length ? <p>暂无操作记录。</p> : null}</div></details> : null}
-      <div className="crmGrid">{filtered.length ? filtered.map(lead=><article className="leadCard" key={lead.id}><div className="leadTop"><strong>{lead.name || '未填写姓名'}</strong><span>{stageLabels[lead.stage] || lead.stage}</span></div><div className="leadMeta"><span>{lead.id}</span><span>{lead.source || 'direct'}</span><span>{lead.preferredDate || '—'}</span><span>{lead.service || '—'}</span><span>到院：{lead.visitDate || '—'}</span><span>复诊：{lead.followupDate || '—'}</span></div><p>{lead.contact || '—'}</p><p className="leadNote">{remoteMode ? '' : lead.note || ''}</p><div className="leadActions"><select value={lead.stage} onChange={e=>remoteMode ? moveRemote(lead.id,e.target.value) : moveLocal(lead.id,e.target.value)}>{LEAD_STAGES.map(s=><option value={s} key={s}>{stageLabels[s]}</option>)}</select><button onClick={()=>remoteMode ? moveRemote(lead.id,'visited',{visitDate:new Date().toISOString().slice(0,10)}) : (updateLead(lead.id,{visitDate:new Date().toISOString().slice(0,10),stage:'visited'}), trackEvent('visit_completed',{leadStage:'visited'}), setLeads(listLeads()))}>已到院</button><button onClick={()=>remoteMode ? moveRemote(lead.id,'followup',{followupDate:new Date().toISOString().slice(0,10)}) : (updateLead(lead.id,{followupDate:new Date().toISOString().slice(0,10),stage:'followup'}), trackEvent('followup_completed',{leadStage:'followup'}), setLeads(listLeads()))}>{stageLabelsZh.followup}</button>{!remoteMode ? <button onClick={()=>removeLocal(lead.id)}>删除</button> : null}</div></article>) : <div className="emptyCard">暂无线索。可以先添加测试线索验证流程。</div>}</div>
+      <div className="crmGrid">{filtered.length ? filtered.map(lead=><article className="leadCard" key={lead.id}><div className="leadTop"><strong>{lead.name || '未填写姓名'}</strong><span>{stageLabels[lead.stage] || lead.stage}</span></div><div className="leadMeta"><span>{lead.id}</span><span>{lead.source || 'direct'}</span><span>{lead.preferredDate || '—'}</span><span>{lead.service || '—'}</span><span>到院：{lead.visitDate || '—'}</span><span>复诊：{lead.followupDate || '—'}</span></div><p>{lead.contact || '—'}</p><p className="leadNote">{remoteMode ? '' : lead.note || ''}</p><div className="leadActions"><select value={lead.stage} onChange={e=>remoteMode ? moveRemote(lead.id,e.target.value,{},lead) : moveLocal(lead.id,e.target.value)}>{LEAD_STAGES.map(s=><option value={s} key={s}>{stageLabels[s]}</option>)}</select><button onClick={()=>remoteMode ? moveRemote(lead.id,'visited',{visitDate:new Date().toISOString().slice(0,10)},lead) : (updateLead(lead.id,{visitDate:new Date().toISOString().slice(0,10),stage:'visited'}), trackEvent('visit_completed',{leadStage:'visited'}), setLeads(listLeads()))}>已到院</button><button onClick={()=>remoteMode ? moveRemote(lead.id,'followup',{followupDate:new Date().toISOString().slice(0,10)},lead) : (updateLead(lead.id,{followupDate:new Date().toISOString().slice(0,10),stage:'followup'}), trackEvent('followup_completed',{leadStage:'followup'}), setLeads(listLeads()))}>{stageLabelsZh.followup}</button>{!remoteMode ? <button onClick={()=>removeLocal(lead.id)}>删除</button> : null}</div></article>) : <div className="emptyCard">暂无线索。可以先添加测试线索验证流程。</div>}</div>
       {remoteMode && remoteTotal > PAGE_SIZE ? <div className="paginationBar"><span>第 {remotePage + 1} / {Math.ceil(remoteTotal / PAGE_SIZE)} 页，共 {remoteTotal} 条</span><div><button disabled={remotePage===0 || loading} onClick={()=>setRemotePage(page=>Math.max(0,page-1))}>上一页</button><button disabled={(remotePage+1)*PAGE_SIZE>=remoteTotal || loading} onClick={()=>setRemotePage(page=>page+1)}>下一页</button></div></div> : null}
     </div>
   </div>
