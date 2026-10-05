@@ -525,14 +525,25 @@ const server = http.createServer(async (req, res) => {
   }
 })
 
+const sessionCleanupTimer = setInterval(async () => {
+  try {
+    await pool.query('DELETE FROM admin_sessions WHERE expires_at < NOW()')
+  } catch (error) {
+    console.error('Session cleanup failed', error)
+  }
+}, 15 * 60 * 1000)
+sessionCleanupTimer.unref()
+
 ensureSchema()
   .then(() => server.listen(PORT, () => console.log('Sanya TCM API listening on :' + PORT)))
   .catch(error => {
     console.error('Database schema initialization failed', error)
+    clearInterval(sessionCleanupTimer)
     process.exit(1)
   })
 
 async function shutdown(signal) {
+  clearInterval(sessionCleanupTimer)
   console.log('Received ' + signal + ', shutting down')
   server.close(async () => {
     await pool.end()
